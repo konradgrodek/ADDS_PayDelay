@@ -1,0 +1,4 @@
+/00_the_thesis/auxil/
+/00_the_thesis/out/
+/01_preprocessing/_in/pay_delay_*.parquet
+/01_preprocessing/_in/pay_delay_*.csv
