@@ -8,9 +8,11 @@ class CodenameGen:
     STYLE_LOWER = 'lowercase'
     STYLE_TITLE = 'title'
 
-    def __init__(self, syllabus_file=pathlib.Path(__file__).parent / r'syllabus.txt'):
+    def __init__(self, syllabus_file=pathlib.Path(__file__).parent / r'syllabus.txt', seed=None):
         with open(syllabus_file, 'r') as _sf:
             self._syllabus = [_s.strip().lower() for _s in _sf.readlines()]
+        if seed is not None:
+            random.seed(seed)
 
     def _next_syllabus(self, style) -> str:
         _ns = random.choice(self._syllabus)
@@ -43,7 +45,7 @@ class CodenameGen:
             raise ValueError('If both min-length and syllabus-count are provided, the method will not attempt to '
                              'generate if ratio of aforementioned arguments does not exceed 2.0')
 
-        if not syllabus_count and not min_length:
+        if not syllabus_count and not min_length and not fixed_length:
             syllabus_count = 2
         if not min_length and not fixed_length:
             min_length = 3
@@ -52,6 +54,11 @@ class CodenameGen:
 
         _word = [self._next_syllabus(style)]
         _rem_chars = min_length - len(_word[0])
+        if fixed_length:
+            while _rem_chars < 0:  # sometimes the syllabus length is greater than desired length
+                _word = [self._next_syllabus(style)]
+                _rem_chars = min_length - len(_word[0])
+
         while (_rem_chars > 0 and syllabus_count is None) or (syllabus_count is not None and len(_word) < syllabus_count):
             _ns = self._next_syllabus(style)
             if fixed_length and _rem_chars < len(_ns):

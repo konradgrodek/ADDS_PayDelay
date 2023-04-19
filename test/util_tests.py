@@ -39,7 +39,16 @@ class CodenameGenTests(TestCase):
             for _cn in _codenames:
                 self._basic_validation(_cn)
                 self.assertGreaterEqual(len(_cn), _len, f'The generated word "{_cn}" has length '
-                                                        f'less then minimal ({_len})')
+                                                        f'less than minimal ({_len})')
+            print(f'OK: {", ".join(_codenames[:10])}')
+
+    def test_fixedlength(self):
+        for _len in range(4, 10):
+            _codenames = [self._gen.generate(fixed_length=_len) for _ in range(100)]
+            for _cn in _codenames:
+                self._basic_validation(_cn)
+                self.assertEqual(len(_cn), _len, f'The generated word "{_cn}" has length '
+                                                 f'different than ({_len})')
             print(f'OK: {", ".join(_codenames[:10])}')
 
     def test_letter_case(self):
