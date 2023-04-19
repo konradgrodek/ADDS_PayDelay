@@ -43,4 +43,4 @@ if __name__ == '__main__':
     print(f'[green]Payment-delay and debts joined in {(datetime.now() - _mark).total_seconds():.1f} s. '
           f'Memory consumed: [red]{pa.total_allocated_bytes()/(1024*1024*1024):.1f} GB')
 
-    pay_delay_with_debts.take(list(range(100))).to_pandas()
+    print(pay_delay_with_debts.take(list(range(100))).to_pandas())
