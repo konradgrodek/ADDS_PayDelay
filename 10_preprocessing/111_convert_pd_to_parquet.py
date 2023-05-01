@@ -1,12 +1,11 @@
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-import pyarrow as pa
 from pyarrow import csv
 import sys
 from rich import print
 from rich.console import Console
 from datetime import datetime
-from input_const import *
+from lib.input_const import *
 
 console = Console()
 
@@ -15,8 +14,10 @@ if __name__ == '__main__':
         print('[red]Missing required parameter: input code that identifies the file with pay-delay information')
         exit(1)
 
-    _input_csv_path = DIR_INPUT / f'{PREFIX_PAY_DELAY}_{sys.argv[1]}.csv'
-    _output_parquet_path = DIR_INPUT / f'{PREFIX_PAY_DELAY}_{sys.argv[1]}{EXTENSION_PARQUET}'
+    _input_code = sys.argv[1]
+
+    _input_csv_path = pay_delay_ori_file(_input_code)
+    _output_parquet_path = pay_delay_file(_input_code)
 
     if not _input_csv_path.exists():
         print(f'[red]The input file {_input_csv_path} does not exist')
@@ -54,7 +55,7 @@ if __name__ == '__main__':
     _mark = datetime.now()
     with console.status(f'[blue]Calculating age at due-date', spinner="bouncingBall"):
         pdelay_full = pdelay_full.append_column(
-            'age',
+            PayDelayColumns.Age.name,
             pc.cast(
                 pc.divide(
                     pc.subtract(
@@ -70,6 +71,9 @@ if __name__ == '__main__':
             )
         )
     print(f'[green]Age of entities calculated in {(datetime.now() - _mark).total_seconds():.1f} s')
+
+    pdelay_full = pdelay_full.remove_column(pdelay_full.schema.get_field_index(PayDelayColumns.BirthDateInt))
+    print(f'[blue]Birthdate column removed')
 
     _mark = datetime.now()
     with console.status(f'[blue]Storing data in parquet file {_output_parquet_path}', spinner="bouncingBall"):

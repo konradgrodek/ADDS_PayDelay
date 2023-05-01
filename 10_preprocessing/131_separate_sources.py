@@ -5,27 +5,30 @@ from rich.console import Console
 import sys
 import csv
 from datetime import datetime
-from input_const import *
-from lib.util import CodenameGen
+from lib.input_const import *
+from lib.util import CodenameGen, report_processing
+
 
 console = Console()
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('[red]Missing required parameter: input code that identifies the file with pay-delay information')
         exit(1)
 
-    _input_parquet_path = DIR_INPUT / f'{PREFIX_PAY_DELAY}_{sys.argv[1]}{EXTENSION_PARQUET}'
+    _input_code = sys.argv[1]
+
+    _input_parquet_path = pay_delay_with_debts_file(_input_code)
 
     if not _input_parquet_path.exists():
         print(f'[red]The input file {_input_parquet_path.absolute()} does not exist')
         exit(1)
 
     print(f'[green]Removing existing per-source parquet files from {DIR_PROCESSING.absolute()}')
-    for _f in DIR_PROCESSING.iterdir():
-        if _f.name.startswith(PREFIX_PAY_DELAY):
-            _f.unlink()
-            print(f'[red]File {_f.absolute()} deleted')
+    for _pdf in PayDelayWithDebtsDirectory(DIR_PROCESSING).pay_delay_file_names():
+        _pdf.file(DIR_PROCESSING).unlink()
+        print(f'[red]{_pdf.codename()} deleted')
 
     _sources_codenames_cache = DIR_PROCESSING / '_src_codenames.cache'
 
@@ -38,13 +41,12 @@ if __name__ == '__main__':
     _mark = datetime.now()
     with console.status(f'[blue]Loading file {_input_parquet_path}', spinner="bouncingBall"):
         pdelay_full = pq.read_table(_input_parquet_path)
-
-    print(f'[green]File {_input_parquet_path} loaded in {(datetime.now() - _mark).total_seconds():.1f} s. '
-          f'Memory consumed: [red]{pa.total_allocated_bytes()/(1024*1024*1024):.1f} GB')
+    report_processing(f'File {_input_parquet_path} loaded', _mark, pdelay_full)
 
     # isolate unique sources, count records for each source
     sources_counted = pdelay_full.group_by(PayDelayColumns.DataSource.name).\
         aggregate([(PayDelayColumns.DataSource.name, 'count')]).to_pandas().set_index(PayDelayColumns.DataSource.name)
+    print(f'[blue]Sources count: {len(sources_counted)}')
 
     sources_counted = sources_counted.sort_values(f'{PayDelayColumns.DataSource.name}_count')
     codenames = CodenameGen(seed=2023)
@@ -66,17 +68,19 @@ if __name__ == '__main__':
         # now store the separated sources
         _mark = datetime.now()
         with console.status(f'[blue]Storing source {_sources_codenames[_src]} ({_src})', spinner="bouncingBall"):
-            _target_file = DIR_PROCESSING / f'{PREFIX_PAY_DELAY}_{_sources_codenames[_src]}.parquet'
+            _target = PayDelayWithDebtsFileName(input_code=_input_code, codename=_sources_codenames[_src])
+            _target_file = _target.file(DIR_PROCESSING, validate=False)
+
             pq.write_table(
                 pdelay_full.filter(pc.field(PayDelayColumns.DataSource.name) == _src),
                 _target_file
             )
-        print(f'[green]Source {_sources_codenames[_src]} stored to parquet in '
+        print(f'[green]Source {_target.codename()} stored to parquet in '
               f'{(datetime.now() - _mark).total_seconds():.1f} s.')
 
     # store the codenames
     if new_codename_found:
-        with open(_sources_codenames_cache, 'w') as _file:
+        with open(_sources_codenames_cache, 'w', newline='') as _file:
             csv.writer(_file).writerows([(_src, _sources_codenames[_src]) for _src in _sources_codenames])
 
 

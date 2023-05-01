@@ -4,7 +4,7 @@ import sys
 from rich import print
 from rich.console import Console
 from datetime import datetime
-from input_const import *
+from lib.input_const import *
 import random
 
 console = Console()

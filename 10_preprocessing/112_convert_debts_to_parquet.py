@@ -1,11 +1,10 @@
-import pathlib
 import pyarrow.parquet as pq
 from pyarrow import csv
 import sys
 from rich import print
 from rich.console import Console
 from datetime import datetime
-from input_const import *
+from lib.input_const import *
 
 console = Console()
 
@@ -42,14 +41,6 @@ if __name__ == '__main__':
             DebtColumns.InfoType.name,
             debts.column(DebtColumns.InfoType.name).dictionary_encode())
     print(f'[green]Info-type converted to categorical values in {(datetime.now() - _mark).total_seconds():.1f} s')
-
-    _mark = datetime.now()
-    with console.status(f'[blue]Converting credit-status to categorical values', spinner="bouncingBall"):
-        debts = debts.set_column(
-            debts.schema.get_field_index(DebtColumns.CreditStatus.name),
-            DebtColumns.CreditStatus.name,
-            debts.column(DebtColumns.CreditStatus.name).dictionary_encode())
-    print(f'[green]Credit-status converted to categorical values in {(datetime.now() - _mark).total_seconds():.1f} s')
 
     _mark = datetime.now()
     with console.status(f'[blue]Storing data in parquet file {_output_parquet_path}', spinner="bouncingBall"):

@@ -1,5 +1,8 @@
 import pathlib
 import random
+from datetime import datetime
+from rich import print
+import pyarrow as pa
 
 
 class CodenameGen:
@@ -85,5 +88,18 @@ class CodenameGen:
 #     with open('syllabus.txt', 'w', newline='') as _file:
 #         _file.writelines([_syl+'\n' for _syl in _syl_raw.split() if not re.match(r'\d+\.', _syl)])
 
+KB = 1024
+MB = KB*1024
+GB = MB*1024
+
+
+def _format_bytes(b: int):
+    return f"{b/GB:.1f} GB" if b >= GB else f"{b/MB:.1f} MB" if b >= MB else f"{b/KB:.1f} KB"
+
+
+def report_processing(action: str, _started_at: datetime, pa_table: pa.Table):
+    print(f'[green]{action} in {(datetime.now() - _started_at).total_seconds():.1f} s, '
+          f'{pa_table.num_rows} records, {_format_bytes(pa_table.nbytes)} '
+          f'[green], total mem.: [red]{_format_bytes(pa.total_allocated_bytes())}')
 
 

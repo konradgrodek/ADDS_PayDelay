@@ -1,5 +1,5 @@
 /00_the_thesis/auxil/
 /00_the_thesis/out/
 /01_preprocessing/_in/*.parquet
-/01_preprocessing/_in/*_2*.csv
-/01_preprocessing/_proc/*
+/_in/*_2*.csv
+/_proc/*
