@@ -3,3 +3,4 @@
 /_in/*.parquet
 /_in/*_2*.csv
 /_proc/*
+/_analysis/*
