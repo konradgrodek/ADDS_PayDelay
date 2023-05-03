@@ -1,17 +1,14 @@
-from lib.input_const import PayDelayWithDebtsFileName, DIR_PROCESSING, PayDelayColumns, MALE, FEMALE
+from lib.input_const import PayDelayColumns, MALE, FEMALE, OUTLIER__MAX_DELAY, OUTLIER__MIN_DELAY
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
+from pathlib import Path
 from typing import Optional
 import pandas as pd
 from functools import cache
 
 
 class PayDelayStatistics:
-    _IS_OUTLIER = "is-outlier"
-
-    OUTLIER__MIN_DELAY = -30
-    OUTLIER__MAX_DELAY = 182
 
     MIN_AGE = 18
     MAX_AGE = 100
@@ -42,40 +39,34 @@ class PayDelayStatistics:
     REPORT_DELAYED_DAYSDIFF_COUNT = 'payment-delayed-days-count'
     REPORT_PAYMENT_ONTIME_COUNT = 'payment-on-time-count'
 
-    def __init__(self, source_file: PayDelayWithDebtsFileName):
-        self._file = source_file.file(basedir=DIR_PROCESSING)
-        self.source_codename = source_file.codename()
+    ROC_TPR = 'sensitivity'
+    ROC_FPR = '1 - specifity'
+
+    def __init__(self, source_file: Path, codename: str):
+        self._file = source_file
+        self.source_codename = codename
         self._content: Optional[pa.Table] = None
-        self._rows_count: Optional[int] = None
 
     def content(self, wo_outliers=True) -> pa.Table:
         if self._content is None:
             self._content = pq.read_table(self._file)
-            self._content = self._content.append_column(
-                self._IS_OUTLIER,
-                pc.or_(
-                    pc.less(self._content.column(PayDelayColumns.DelayDays.name), self.OUTLIER__MIN_DELAY),
-                    pc.greater(self._content.column(PayDelayColumns.DelayDays.name), self.OUTLIER__MAX_DELAY)
-                )
-            )
-        return self._content.filter(pc.field(self._IS_OUTLIER) == False) if wo_outliers else self._content
+        return self._content.filter(pc.field(PayDelayColumns.IsOutlier.name) == False) if wo_outliers else self._content
 
+    @cache
     def count_rows(self) -> int:
-        if self._rows_count is None:
-            self._rows_count = self.content(wo_outliers=False).num_rows
-        return self._rows_count
+        return self.content(wo_outliers=False).num_rows
 
     def count_rows_wo_outliers(self) -> int:
         return self.content().num_rows
 
     def count_outliers_min_delay(self) -> int:
         return self.content(wo_outliers=False).filter(
-            (pc.field(PayDelayColumns.DelayDays.name) < self.OUTLIER__MIN_DELAY)
+            (pc.field(PayDelayColumns.DelayDays.name) < OUTLIER__MIN_DELAY)
         ).num_rows
 
     def count_outliers_max_delay(self) -> int:
         return self.content(wo_outliers=False).filter(
-            (pc.field(PayDelayColumns.DelayDays.name) > self.OUTLIER__MAX_DELAY)
+            (pc.field(PayDelayColumns.DelayDays.name) > OUTLIER__MAX_DELAY)
         ).num_rows
 
     def count_entities(self) -> int:
@@ -172,8 +163,40 @@ class PayDelayStatistics:
 
         return _mean, _stddev, _count
 
-    def count_ontime_payements(self) -> int:
+    def count_ontime_payments(self) -> int:
         return self.content().filter(pc.field(PayDelayColumns.DelayDays.name) == 0).num_rows
+
+    @cache
+    def calculate_roc_positive_payments(self, risk_class: int, positive_if_no_debt_within_years: int) -> pd.DataFrame:
+        _positive_if_no_debt_within_days = positive_if_no_debt_within_years * 365
+        _later_debt_colname = PayDelayColumns.LaterDebtsMinDaysToValidFrom(risk_class).name
+        _positive_payments = self.content()\
+            .filter(pc.field(PayDelayColumns.DelayDays.name) <= 0)\
+            .select([PayDelayColumns.DelayDays.name, _later_debt_colname])
+
+        roc = {self.ROC_FPR: list(), self.ROC_TPR: list()}
+        thresholds = list(range(0, abs(OUTLIER__MIN_DELAY)+1))
+        for threshold in thresholds:
+            positive = _positive_payments.filter(
+                pc.field(_later_debt_colname).is_null() |
+                (pc.field(_later_debt_colname) > _positive_if_no_debt_within_days)
+            ).num_rows
+            true_positive = _positive_payments.filter(
+                (pc.abs(pc.field(PayDelayColumns.DelayDays.name)) >= threshold) &
+                (pc.field(_later_debt_colname).is_null() |
+                (pc.field(_later_debt_colname) > _positive_if_no_debt_within_days))
+            ).num_rows
+            false_positive = _positive_payments.filter(
+                (pc.abs(pc.field(PayDelayColumns.DelayDays.name)) >= threshold) &
+                (pc.field(_later_debt_colname) <= _positive_if_no_debt_within_days)
+            ).num_rows
+            negative = _positive_payments.filter(
+                pc.field(_later_debt_colname) <= _positive_if_no_debt_within_days
+            ).num_rows
+            roc[self.ROC_FPR].append(false_positive / negative if negative != 0 else 0)
+            roc[self.ROC_TPR].append(true_positive / positive if positive != 0 else 0)
+
+        return pd.DataFrame(roc, index=thresholds)
 
     def report(self) -> pd.DataFrame:
         return pd.DataFrame({
@@ -198,6 +221,6 @@ class PayDelayStatistics:
             self.REPORT_PREPAID_DAYSDIFF_MEAN: [self.measure_prepaid_daysdiff_stats()[0]],
             self.REPORT_PREPAID_DAYSDIFF_STDDEV: [self.measure_prepaid_daysdiff_stats()[1]],
             self.REPORT_PREPAID_DAYSDIFF_COUNT: [self.measure_prepaid_daysdiff_stats()[2]],
-            self.REPORT_PAYMENT_ONTIME_COUNT: [self.count_ontime_payements()]
+            self.REPORT_PAYMENT_ONTIME_COUNT: [self.count_ontime_payments()],
         }, index=[self.source_codename])
 

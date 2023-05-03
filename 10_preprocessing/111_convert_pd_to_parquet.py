@@ -31,6 +31,18 @@ if __name__ == '__main__':
           f'Memory consumed: [red]{pa.total_allocated_bytes()/(1024*1024*1024):.1f} GB')
 
     _mark = datetime.now()
+    with console.status(f'[blue]Sorting', spinner="bouncingBall"):
+        pdelay_full = pdelay_full.sort_by(
+            [
+                (PayDelayColumns.DataSource.name, 'ascending'),
+                (PayDelayColumns.EntityId.name, 'ascending'),
+                (PayDelayColumns.DueDate.name, 'ascending')
+            ]
+        )
+    print(f'[green]Payment delays sorted in {(datetime.now() - _mark).total_seconds():.1f} s. '
+          f'Memory consumed: [red]{pa.total_allocated_bytes()/(1024*1024*1024):.1f} GB')
+
+    _mark = datetime.now()
     with console.status(f'[blue]Generating payment delay id', spinner="bouncingBall"):
         pdelay_full = pdelay_full.add_column(
             0, pa.field(*PayDelayColumns.Id), pa.array(range(1, pdelay_full.num_rows+1), type=PayDelayColumns.Id.otype))
@@ -72,7 +84,33 @@ if __name__ == '__main__':
         )
     print(f'[green]Age of entities calculated in {(datetime.now() - _mark).total_seconds():.1f} s')
 
-    pdelay_full = pdelay_full.remove_column(pdelay_full.schema.get_field_index(PayDelayColumns.BirthDateInt))
+    _mark = datetime.now()
+    with console.status(f'[blue]Marking outliers', spinner="bouncingBall"):
+        pdelay_full = pdelay_full.append_column(
+            PayDelayColumns.IsOutlier.name,
+            pc.or_(
+                pc.less(pdelay_full.column(PayDelayColumns.DelayDays.name), OUTLIER__MIN_DELAY),
+                pc.greater(pdelay_full.column(PayDelayColumns.DelayDays.name), OUTLIER__MAX_DELAY)
+            )
+        )
+    print(f'[green]Outliers found in {(datetime.now() - _mark).total_seconds():.1f} s')
+
+    # the amount, even if appearing to be incorrect, will be ignored, not marked as outlier
+    # a pay-delay with unknown amount is useful information, the pay-delay without delay is useless
+    _mark = datetime.now()
+    with console.status(f'[blue]Cleaning amount', spinner="bouncingBall"):
+        pdelay_full = pdelay_full.set_column(
+            pdelay_full.schema.get_field_index(PayDelayColumns.InvoicedAmount.name),
+            PayDelayColumns.InvoicedAmount.name,
+            pc.if_else(
+                pc.less_equal(pdelay_full.column(PayDelayColumns.InvoicedAmount.name), 0),
+                pa.nulls(pdelay_full.num_rows),
+                pdelay_full.column(PayDelayColumns.InvoicedAmount.name)
+            )
+        )
+    print(f'[green]Amount cleaned in {(datetime.now() - _mark).total_seconds():.1f} s')
+
+    pdelay_full = pdelay_full.remove_column(pdelay_full.schema.get_field_index(PayDelayColumns.BirthDateInt.name))
     print(f'[blue]Birthdate column removed')
 
     _mark = datetime.now()

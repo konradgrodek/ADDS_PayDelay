@@ -4,7 +4,7 @@ from datetime import datetime
 from rich import print
 from rich.console import Console
 
-from lib.input_const import PayDelayWithDebtsDirectory
+from lib.input_const import PayDelayWithDebtsDirectory, DIR_PROCESSING, report_overview_file
 from lib.util import report_processing
 from lib.statistics import *
 
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     _reports = list()
 
     for pd_source_file in PayDelayWithDebtsDirectory(DIR_PROCESSING).pay_delay_file_names():
-        statistics = PayDelayStatistics(pd_source_file)
+        statistics = PayDelayStatistics(pd_source_file.file(basedir=DIR_PROCESSING), pd_source_file.codename())
 
         _mark = datetime.now()
         with console.status(f'[blue]Loading {statistics.source_codename}', spinner="bouncingBall"):
@@ -33,5 +33,5 @@ if __name__ == '__main__':
             _reports.append(statistics.report())
         print(f'[green]Source {statistics.source_codename} processed in {(datetime.now()-_mark).total_seconds():.1f} s')
 
-    print(pd.concat(_reports))
+    pd.concat(_reports).to_csv(report_overview_file(_input_code))
 

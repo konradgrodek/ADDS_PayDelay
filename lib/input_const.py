@@ -9,6 +9,7 @@ import re
 
 DIR_INPUT = Path('../_in')
 DIR_PROCESSING = Path('../_proc')
+DIR_ANALYSIS = Path('../_analysis')
 
 PREFIX_PAY_DELAY = 'pay_delay'
 PREFIX_PAY_DELAY_WITH_DEBTS = 'pay_delay_w_debts'
@@ -18,6 +19,9 @@ EXTENSION_PARQUET = '.parquet'
 
 MALE = "MALE"
 FEMALE = "FEMALE"
+
+OUTLIER__MIN_DELAY = -90
+OUTLIER__MAX_DELAY = 365
 
 Column = namedtuple('Column', ['name', 'otype'])
 
@@ -58,6 +62,8 @@ class PayDelayColumns:
     Id = Column('pd_id', pa.uint32())
 
     Age = Column("age", pa.int16())
+
+    IsOutlier = Column("is_outlier", pa.bool_())
 
     PriorDebtsMaxCreditStatus = Column(f"prior_{DebtColumns.CreditStatus.name}_max", DebtColumns.CreditStatus.otype)
     LaterDebtsCount = Column("later_debts_count", "undefined")
@@ -213,3 +219,34 @@ class PayDelayWithDebtsDirectory:
         :return: list of Path
         """
         return [_pdf.file(self._dir) for _pdf in self.pay_delay_file_names()]
+
+
+def report_overview_file(input_code: str) -> Path:
+    """
+    Provides path to file with stored DataFrame containing overview report on the sources
+    :param input_code: the input-code of interest
+    :return: the path to the file with overview report
+    """
+    return DIR_ANALYSIS / f'overview_report_{input_code}.csv'
+
+
+def payment_stories_file(input_code: str, source_codename: str) -> Path:
+    """
+    Returns path to file containing "payment stories", payments grouped by entity and ordered in time-lines
+    :param input_code: the input-code
+    :param source_codename: the identification of source
+    :return: file path
+    """
+    return DIR_PROCESSING / f'payment_stories_{source_codename}_{input_code}{EXTENSION_PARQUET}'
+
+
+class PaymentStoryColumns:
+
+    FirstPaymentId = Column(PayDelayColumns.Id.name+"_min", PayDelayColumns.Id.otype)
+    EntityId = PayDelayColumns.EntityId
+    BeginsAt = Column(PayDelayColumns.DueDate.name+"_start", PayDelayColumns.DueDate.otype)
+    EndsAt = Column(PayDelayColumns.DueDate.name+"_stop", PayDelayColumns.DueDate.otype)
+    PaymentsList = Column("payments", None)
+    BeginsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_start", DebtColumns.CreditStatus.otype)
+    EndsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_stop", DebtColumns.CreditStatus.otype)
+    LaterDebtMinDaysToValidFrom = Column(f"later_debts_min_days_to_valid_from", None)
