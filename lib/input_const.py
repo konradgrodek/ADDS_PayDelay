@@ -12,7 +12,9 @@ DIR_PROCESSING = Path('../_proc')
 DIR_ANALYSIS = Path('../_analysis')
 
 PREFIX_PAY_DELAY = 'pay_delay'
-PREFIX_PAY_DELAY_WITH_DEBTS = 'pay_delay_w_debts'
+PREFIX_PAYMENTS_WITH_DEBTS = 'pay_delay_w_debts'
+PREFIX_PAYMENTS_GROUPED = 'payments_grouped'
+PREFIX_PAYMENT_STORIES = 'payment_stories'
 PREFIX_DEBTS = 'debts'
 
 EXTENSION_PARQUET = '.parquet'
@@ -98,17 +100,15 @@ def pay_delay_with_debts_file(input_code: str) -> Path:
     :param input_code: the input-code of interest (e.g. '202212' or 'SAMPLE', etc)
     :return: the Path pointing to the file
     """
-    return DIR_PROCESSING / f'{PREFIX_PAY_DELAY_WITH_DEBTS}_{input_code}{EXTENSION_PARQUET}'
+    return DIR_PROCESSING / f'{PREFIX_PAYMENTS_WITH_DEBTS}_{input_code}{EXTENSION_PARQUET}'
 
 
-class PayDelayWithDebtsFileName:
+class PerSourceFileName:
     """
-    Encapsulates creating and 'parsing' the file name with payment delays combined with debts per source
+    Encapsulates creating and 'parsing' file name
     """
 
-    PATTERN = re.compile(f"{PREFIX_PAY_DELAY_WITH_DEBTS}_([A-Z][a-z]+)_(.*){EXTENSION_PARQUET}")
-
-    def __init__(self, file: Path = None, input_code: str = None, codename: str = None):
+    def __init__(self, prefix: str, file: Path = None, input_code: str = None, codename: str = None):
         """
         There are two ways to define the object:
         (i) by providing valid path to the file
@@ -117,6 +117,8 @@ class PayDelayWithDebtsFileName:
         :param input_code: the name of the input-code
         :param codename: the code-name of the source
         """
+        self._prefix = prefix
+        self._pattern = re.compile(f"{self._prefix}_([A-Z][a-z]+)_(.*){EXTENSION_PARQUET}")
         if file is not None:
             if input_code is not None or codename is not None:
                 raise ValueError('Provide either the path or input-code and source codename')
@@ -135,7 +137,7 @@ class PayDelayWithDebtsFileName:
         :return: the file name
         """
         if self._file_name is None:
-            self._file_name = f"{PREFIX_PAY_DELAY_WITH_DEBTS}_{self._codename}_{self._input_code}{EXTENSION_PARQUET}"
+            self._file_name = f"{self._prefix}_{self._codename}_{self._input_code}{EXTENSION_PARQUET}"
         return self._file_name
 
     def is_name_valid(self) -> bool:
@@ -144,7 +146,7 @@ class PayDelayWithDebtsFileName:
         for pay-delay-with-debts-by-source
         :return: True if the name follows the pay-delay-with-debes-by-source pattern
         """
-        return re.fullmatch(self.PATTERN, self.file_name()) is not None
+        return re.fullmatch(self._pattern, self.file_name()) is not None
 
     def input_code(self) -> str:
         """
@@ -155,7 +157,7 @@ class PayDelayWithDebtsFileName:
             return self._input_code
         if not self.is_name_valid():
             raise ValueError("The provided name is not valid pay-delay-with-debts-per-source name")
-        self._input_code = self.PATTERN.match(self._file_name).group(2)
+        self._input_code = self._pattern.match(self._file_name).group(2)
         return self._input_code
 
     def codename(self) -> str:
@@ -168,7 +170,7 @@ class PayDelayWithDebtsFileName:
             return self._codename
         if not self.is_name_valid():
             raise ValueError("The provided name is not valid pay-delay-with-debts-per-source name")
-        self._codename = self.PATTERN.match(self._file_name).group(1)
+        self._codename = self._pattern.match(self._file_name).group(1)
         return self._codename
 
     def file(self, basedir: Path = Path('.'), validate=True) -> Path:
@@ -188,37 +190,51 @@ class PayDelayWithDebtsFileName:
         return self.file(basedir, validate)
 
 
-class PayDelayWithDebtsDirectory:
+def PayDelayWithDebtsFileName(file: Path = None, input_code: str = None, codename: str = None):
+    return PerSourceFileName(PREFIX_PAYMENTS_WITH_DEBTS, file=file, input_code=input_code, codename=codename)
+
+
+class PerSourceDirectory:
     """
-    Class is designed to ease filtering the pay-delay-with-debts-per-source out of given directory
+    Class is designed to ease filtering the provided type of files from given directory for all sources
     """
 
-    def __init__(self, _dir: Path):
+    def __init__(self, prefix: str, _dir: Path):
         """
-        Creates the object which can be used to provide all files that met pay-delay-with-debts-per-source files pattern
+        Creates the object which can be used to provide all files that met given files pattern
+        :param prefix: the prefix of files
         :param _dir: the directory to scan
         """
+        self._prefix = prefix
         self._dir = _dir
         if not self._dir.is_dir():
             raise ValueError(f"The path {self._dir} does not point to a directory")
 
-    def pay_delay_file_names(self) -> list[PayDelayWithDebtsFileName]:
+    def file_names(self) -> list[PerSourceFileName]:
         """
-        Provides list of file-names objects for all pay-delay-with-debts-per-source files within the directory
+        Provides list of file-names objects for all files within the directory that meet given pattern
         :return: list of PayDelayWithDebtsFileName
         """
         return [
             _pdf
-            for _pdf in [PayDelayWithDebtsFileName(file=_fle) for _fle in self._dir.iterdir()]
+            for _pdf in [PerSourceFileName(prefix=self._prefix, file=_fle) for _fle in self._dir.iterdir()]
             if _pdf.is_name_valid()
         ]
 
-    def pay_delay_files(self) -> list[Path]:
+    def files(self) -> list[Path]:
         """
         Provides list of files for all pay-delay-with-debts-per-source files within the directory
         :return: list of Path
         """
-        return [_pdf.file(self._dir) for _pdf in self.pay_delay_file_names()]
+        return [_pdf.file(self._dir) for _pdf in self.file_names()]
+
+
+def PayDelayWithDebtsDirectory(_dir: Path):
+    return PerSourceDirectory(PREFIX_PAYMENTS_WITH_DEBTS, _dir)
+
+
+def PaymentsGroupedDirectory(_dir: Path):
+    return PerSourceDirectory(PREFIX_PAYMENTS_GROUPED, _dir)
 
 
 def report_overview_file(input_code: str) -> Path:
@@ -230,6 +246,17 @@ def report_overview_file(input_code: str) -> Path:
     return DIR_ANALYSIS / f'overview_report_{input_code}.csv'
 
 
+def payments_grouped_by_stories_file(input_code: str, source_codename: str) -> Path:
+    """
+    Returns path to file containing partial, intermediate processing data:
+    payment information with the grouping information and - if exists - the "ending debt" info
+    :param input_code: the input-code
+    :param source_codename: the source identifier
+    :return: path to a parquet file
+    """
+    return DIR_PROCESSING / f'{PREFIX_PAYMENTS_GROUPED}_{source_codename}_{input_code}{EXTENSION_PARQUET}'
+
+
 def payment_stories_file(input_code: str, source_codename: str) -> Path:
     """
     Returns path to file containing "payment stories", payments grouped by entity and ordered in time-lines
@@ -237,16 +264,30 @@ def payment_stories_file(input_code: str, source_codename: str) -> Path:
     :param source_codename: the identification of source
     :return: file path
     """
-    return DIR_PROCESSING / f'payment_stories_{source_codename}_{input_code}{EXTENSION_PARQUET}'
+    return DIR_PROCESSING / f'{PREFIX_PAYMENT_STORIES}_{source_codename}_{input_code}{EXTENSION_PARQUET}'
+
+
+class PaymentGroupsColumns:
+
+    Id = PayDelayColumns.Id
+    EntityId = PayDelayColumns.EntityId
+    DueDate = PayDelayColumns.DueDate
+    DelayDays = PayDelayColumns.DelayDays
+    InvoicedAmount = PayDelayColumns.InvoicedAmount
+    PriorCreditStatusMax = PayDelayColumns.PriorDebtsMaxCreditStatus
+    StoryId = Column("story_id", PayDelayColumns.Id.otype)
+    DividingCreditStatus = Column("dividing_credit_status", PayDelayColumns.LaterDebtsMaxCreditStatus.otype)
+    DividingDaysToDebt = Column("dividing_days_to_debt", PayDelayColumns.LaterDebtsMinDaysToValidFrom(1).otype)
 
 
 class PaymentStoryColumns:
 
-    FirstPaymentId = Column(PayDelayColumns.Id.name+"_min", PayDelayColumns.Id.otype)
-    EntityId = PayDelayColumns.EntityId
-    BeginsAt = Column(PayDelayColumns.DueDate.name+"_start", PayDelayColumns.DueDate.otype)
-    EndsAt = Column(PayDelayColumns.DueDate.name+"_stop", PayDelayColumns.DueDate.otype)
-    PaymentsList = Column("payments", None)
-    BeginsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_start", DebtColumns.CreditStatus.otype)
-    EndsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_stop", DebtColumns.CreditStatus.otype)
-    LaterDebtMinDaysToValidFrom = Column(f"later_debts_min_days_to_valid_from", None)
+    pass
+    # FirstPaymentId = Column(PayDelayColumns.Id.name+"_min", PayDelayColumns.Id.otype)
+    # EntityId = PayDelayColumns.EntityId
+    # BeginsAt = Column(PayDelayColumns.DueDate.name+"_start", PayDelayColumns.DueDate.otype)
+    # EndsAt = Column(PayDelayColumns.DueDate.name+"_stop", PayDelayColumns.DueDate.otype)
+    # PaymentsList = Column("payments", None)
+    # BeginsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_start", DebtColumns.CreditStatus.otype)
+    # EndsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_stop", DebtColumns.CreditStatus.otype)
+    # LaterDebtMinDaysToValidFrom = Column(f"later_debts_min_days_to_valid_from", None)

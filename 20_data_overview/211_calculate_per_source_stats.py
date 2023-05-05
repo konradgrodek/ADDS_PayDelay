@@ -20,7 +20,7 @@ if __name__ == '__main__':
     _input_code = sys.argv[1]
     _reports = list()
 
-    for pd_source_file in PayDelayWithDebtsDirectory(DIR_PROCESSING).pay_delay_file_names():
+    for pd_source_file in PayDelayWithDebtsDirectory(DIR_PROCESSING).file_names():
         statistics = PayDelayStatistics(pd_source_file.file(basedir=DIR_PROCESSING), pd_source_file.codename())
 
         _mark = datetime.now()

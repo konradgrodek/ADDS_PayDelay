@@ -26,7 +26,7 @@ if __name__ == '__main__':
         exit(1)
 
     print(f'[green]Removing existing per-source parquet files from {DIR_PROCESSING.absolute()}')
-    for _pdf in PayDelayWithDebtsDirectory(DIR_PROCESSING).pay_delay_file_names():
+    for _pdf in PayDelayWithDebtsDirectory(DIR_PROCESSING).file_names():
         _pdf.file(DIR_PROCESSING).unlink()
         print(f'[red]{_pdf.codename()} deleted')
 
