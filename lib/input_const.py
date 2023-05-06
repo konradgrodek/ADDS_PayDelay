@@ -237,6 +237,10 @@ def PaymentsGroupedDirectory(_dir: Path):
     return PerSourceDirectory(PREFIX_PAYMENTS_GROUPED, _dir)
 
 
+def PaymentStoriesDirectory(_dir: Path):
+    return PerSourceDirectory(PREFIX_PAYMENT_STORIES, _dir)
+
+
 def report_overview_file(input_code: str) -> Path:
     """
     Provides path to file with stored DataFrame containing overview report on the sources
@@ -280,14 +284,26 @@ class PaymentGroupsColumns:
     DividingDaysToDebt = Column("dividing_days_to_debt", PayDelayColumns.LaterDebtsMinDaysToValidFrom(1).otype)
 
 
-class PaymentStoryColumns:
+class PaymentStoriesColumns:
 
-    pass
-    # FirstPaymentId = Column(PayDelayColumns.Id.name+"_min", PayDelayColumns.Id.otype)
-    # EntityId = PayDelayColumns.EntityId
-    # BeginsAt = Column(PayDelayColumns.DueDate.name+"_start", PayDelayColumns.DueDate.otype)
-    # EndsAt = Column(PayDelayColumns.DueDate.name+"_stop", PayDelayColumns.DueDate.otype)
-    # PaymentsList = Column("payments", None)
-    # BeginsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_start", DebtColumns.CreditStatus.otype)
-    # EndsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_stop", DebtColumns.CreditStatus.otype)
-    # LaterDebtMinDaysToValidFrom = Column(f"later_debts_min_days_to_valid_from", None)
+    StoryId = PaymentGroupsColumns.StoryId
+    FirstPaymentId = Column(PayDelayColumns.Id.name+"_min", PayDelayColumns.Id.otype)
+    EntityId = PayDelayColumns.EntityId
+    BeginsAt = Column(PayDelayColumns.DueDate.name+"_first", PayDelayColumns.DueDate.otype)
+    EndsAt = Column(PayDelayColumns.DueDate.name+"_last", PayDelayColumns.DueDate.otype)
+    Duration = Column("story_duration_days", PayDelayColumns.DelayDays.otype)
+    BeginsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_start", DebtColumns.CreditStatus.otype)
+    EndsWithCreditStatus = Column(DebtColumns.CreditStatus.name+"_stop", DebtColumns.CreditStatus.otype)
+    LaterDebtMinDaysToValidFrom = Column(f"later_debts_min_days_to_valid_from",
+                                         PaymentGroupsColumns.DividingDaysToDebt.otype)
+    PaymentsCount = Column('payments_count', pa.uint16())
+    ScaledDelaySum = Column(PayDelayColumns.DelayDays.name+'_scaled_sum', pa.float32())
+    ScaledDelayMean = Column(PayDelayColumns.DelayDays.name+'_scaled_mean', pa.float32())
+    ScaledAmountMean = Column(PayDelayColumns.InvoicedAmount.name+'_scaled_mean', pa.float32())
+    SeveritySum = Column('severity_sum', ScaledDelaySum.otype)
+    SeverityMean = Column('severity_mean', ScaledDelaySum.otype)
+    DaysSinceBeginMean = Column('days_since_begin_mean', None)
+    TendencyCoefficient_ForDelay = Column('regression_line_a1_for_delay', None)
+    TendencyError_ForDelay = Column('regression_line_rsquare_for_delay', None)
+    TendencyCoefficient_ForSeverity = Column('regression_line_a1_for_severity', None)
+    TendencyError_ForSeverity = Column('regression_line_rsquare_for_severity', None)
