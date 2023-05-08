@@ -1,7 +1,5 @@
-from pathlib import Path
-
-from lib.input_const import \
-    PayDelayColumns, PaymentGroupsColumns, PaymentStoriesColumns, payments_grouped_by_stories_file
+from lib.input_const import *
+from lib.subarrow import ArrowAggregate
 
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
@@ -35,7 +33,7 @@ class PaymentHistoryGrouper:
         """
         Loads the payment-delay data with debt information from parquet file.
         Only non-outliers are loaded. The loaded content is sorted by pd-id
-        (yes, interestingly the order of records is not preserved when store - restore from parquet file)
+        (sic! interestingly the order of records is not preserved when store - restore from parquet file)
         :return: the reference to pyarrow Table (use it to display number of rows and allocated memory)
         """
         if self._content is None:
@@ -204,6 +202,8 @@ class PaymentStoriesBuilder:
     COL_DELAY_SCALED = PaymentGroupsColumns.DelayDays.name + '_scaled'
     COL_STORY_TIMELINE = 'days_since_story_begins'
     COL_SEVERITY = 'severity'
+
+    _USE_SUBARROW_WHEN_LARGER_THAN_RECORDS = 1000000
 
     def __init__(self, source_file: Path, codename: str):
         self._file = source_file
@@ -388,8 +388,20 @@ class PaymentStoriesBuilder:
         _col_distance_to_mean_y_severity = 'distance-to-mean-y-severity'
         _col_xdist_m_ydist_delay = 'distance-to-mean-x-multiplied-by-distance-to-mean-y-delay'
         _col_xdist_m_ydist_severity = 'distance-to-mean-x-multiplied-by-distance-to-mean-y-severity'
-        _payments = self.story_timeline().join(
-            self.stories(), keys=[PaymentGroupsColumns.StoryId.name, PaymentGroupsColumns.EntityId.name]
+        _payments = self.story_timeline().select([
+            PaymentGroupsColumns.StoryId.name,
+            PaymentGroupsColumns.EntityId.name,
+            self.COL_STORY_TIMELINE,
+            self.COL_DELAY_SCALED,
+            self.COL_SEVERITY
+        ]).join(
+            self.stories().select([
+                PaymentStoriesColumns.StoryId.name,
+                PaymentStoriesColumns.EntityId.name,
+                PaymentStoriesColumns.DaysSinceBeginMean.name,
+                PaymentStoriesColumns.ScaledDelayMean.name,
+                PaymentStoriesColumns.SeverityMean.name
+            ]), keys=[PaymentGroupsColumns.StoryId.name, PaymentGroupsColumns.EntityId.name]
         )
         _payments = _payments.append_column(
             _col_distance_to_mean_x,
@@ -428,13 +440,20 @@ class PaymentStoriesBuilder:
             )
         )
 
-        _a1_components = _payments.group_by(
-            PaymentGroupsColumns.StoryId.name
-        ).aggregate([
-            (_col_xdist_m_ydist_delay, 'sum'),
-            (_col_xdist_m_ydist_severity, 'sum'),
-            (_col_distance_to_mean_x_squared, 'sum')
-        ])
+        if _payments.num_rows > self._USE_SUBARROW_WHEN_LARGER_THAN_RECORDS:
+            _a1_components = ArrowAggregate(_payments, [PaymentGroupsColumns.StoryId.name], [
+                (_col_xdist_m_ydist_delay, 'sum'),
+                (_col_xdist_m_ydist_severity, 'sum'),
+                (_col_distance_to_mean_x_squared, 'sum')
+            ], tempdir=DIR_PROCESSING.absolute()).aggregate()
+        else:
+            _a1_components = _payments.group_by(
+                PaymentGroupsColumns.StoryId.name
+            ).aggregate([
+                (_col_xdist_m_ydist_delay, 'sum'),
+                (_col_xdist_m_ydist_severity, 'sum'),
+                (_col_distance_to_mean_x_squared, 'sum')
+            ])
 
         _a1_components = _a1_components.append_column(
             PaymentStoriesColumns.TendencyCoefficient_ForDelay.name,
@@ -539,14 +558,22 @@ class PaymentStoriesBuilder:
             pc.power(_payments.column(_col_distance_to_mean_y_severity), 2)
         )
 
-        _rsquare_components = _payments.group_by(
-            PaymentGroupsColumns.StoryId.name
-        ).aggregate([
-            (_col_distance_to_mean_y_theoretical_delay, 'sum'),
-            (_col_distance_to_mean_y_theoretical_severity, 'sum'),
-            (_col_distance_to_mean_y_delay_squared, 'sum'),
-            (_col_distance_to_mean_y_severity_squared, 'sum')
-        ])
+        if _payments.num_rows > self._USE_SUBARROW_WHEN_LARGER_THAN_RECORDS:
+            _rsquare_components = ArrowAggregate(_payments, [PaymentGroupsColumns.StoryId.name], [
+                    (_col_distance_to_mean_y_theoretical_delay, 'sum'),
+                    (_col_distance_to_mean_y_theoretical_severity, 'sum'),
+                    (_col_distance_to_mean_y_delay_squared, 'sum'),
+                    (_col_distance_to_mean_y_severity_squared, 'sum')
+            ], tempdir=DIR_PROCESSING.absolute()).aggregate()
+        else:
+            _rsquare_components = _payments.group_by(
+                PaymentGroupsColumns.StoryId.name
+            ).aggregate([
+                (_col_distance_to_mean_y_theoretical_delay, 'sum'),
+                (_col_distance_to_mean_y_theoretical_severity, 'sum'),
+                (_col_distance_to_mean_y_delay_squared, 'sum'),
+                (_col_distance_to_mean_y_severity_squared, 'sum')
+            ])
 
         _rsquare_components = _rsquare_components.append_column(
             PaymentStoriesColumns.TendencyError_ForDelay.name,
@@ -572,6 +599,11 @@ class PaymentStoriesBuilder:
         )
 
         return self._stories
+
+    def write_stories(self, input_code: str):
+        _file = payment_stories_file(input_code, self.source_codename)
+        pq.write_table(self.stories(), _file)
+        return _file
 
 
 

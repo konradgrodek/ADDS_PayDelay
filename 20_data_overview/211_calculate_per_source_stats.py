@@ -6,7 +6,7 @@ from rich.console import Console
 
 from lib.input_const import PayDelayWithDebtsDirectory, DIR_PROCESSING, report_overview_file
 from lib.util import report_processing
-from lib.statistics import *
+from lib.overview import *
 
 
 console = Console()
