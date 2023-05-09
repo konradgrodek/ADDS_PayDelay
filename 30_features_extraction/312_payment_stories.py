@@ -38,8 +38,8 @@ if __name__ == '__main__':
 
         _mark = datetime.now()
         with console.status(f'[blue]Scaling delay and amount, calculating severity', spinner="bouncingBall"):
-            _content = stories_builder.scaled_delays()
-            _content = stories_builder.scaled_amount()
+            stories_builder.scaled_delays()
+            stories_builder.scaled_amount()
             _content = stories_builder.severity()
         report_processing(f"Delay and amount scaled, severity calculated", _mark, _content)
 
@@ -59,9 +59,15 @@ if __name__ == '__main__':
         report_processing(f"Tendencies found and evaluated", _mark, _content)
 
         _mark = datetime.now()
-        with console.status(f'[blue]Writing output', spinner="bouncingBall"):
+        with console.status(f'[blue]Writing stories', spinner="bouncingBall"):
             _file = stories_builder.write_stories(_input_code)
-        print(f'[green]Stories for source <{stories_builder.source_codename}> wrote to '
+        print(f'[green]Stories wrote to '
+              f'{_file} in {(datetime.now() - _mark).total_seconds():.1f} s')
+
+        _mark = datetime.now()
+        with console.status(f'[blue]Updating payment groups', spinner="bouncingBall"):
+            _file = stories_builder.update_payment_groups(_input_code)
+        print(f'[green]Payment groups updated, wrote to '
               f'{_file} in {(datetime.now() - _mark).total_seconds():.1f} s')
 
     print('[green]DONE')

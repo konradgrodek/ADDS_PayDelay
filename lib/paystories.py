@@ -198,11 +198,6 @@ class PaymentStoriesBuilder:
     """
     """
 
-    COL_AMOUNT_SCALED = PaymentGroupsColumns.InvoicedAmount.name + '_scaled'
-    COL_DELAY_SCALED = PaymentGroupsColumns.DelayDays.name + '_scaled'
-    COL_STORY_TIMELINE = 'days_since_story_begins'
-    COL_SEVERITY = 'severity'
-
     _USE_SUBARROW_WHEN_LARGER_THAN_RECORDS = 1000000
 
     def __init__(self, source_file: Path, codename: str):
@@ -217,6 +212,9 @@ class PaymentStoriesBuilder:
 
     def payments(self) -> pa.Table:
         if self._payments is None:
+            # FIXME consider loading only part of the columns
+            # some columns are calculated by this class and then grouped payments are updated!
+            # on one hand it is cool to have them calculated once, on the other: what is something will change?
             self._payments = pq.read_table(self._file)
 
         return self._payments
@@ -244,9 +242,9 @@ class PaymentStoriesBuilder:
         return self._amount_Q_3_1
 
     def scaled_delays(self) -> pa.Table:
-        if self.COL_DELAY_SCALED not in self.payments().column_names:
+        if PaymentGroupsColumns.DelayDaysScaled.name not in self.payments().column_names:
             self._payments = self.payments().append_column(
-                self.COL_DELAY_SCALED,
+                PaymentGroupsColumns.DelayDaysScaled.name,
                 pc.divide(
                     pc.subtract(
                         self.payments().column(PaymentGroupsColumns.DelayDays.name),
@@ -257,7 +255,7 @@ class PaymentStoriesBuilder:
         return self._payments
 
     def scaled_amount(self) -> pa.Table:
-        if self.COL_AMOUNT_SCALED not in self.payments().column_names:
+        if PaymentGroupsColumns.InvoicedAmountScaled.name not in self.payments().column_names:
             # if count of missing amounts is < 10% then replace it with median
             # otherwise the records should not be taken into consideration when calculating
             # features based on amounts
@@ -268,7 +266,7 @@ class PaymentStoriesBuilder:
                     self.payments().column(PaymentGroupsColumns.InvoicedAmount.name).fill_null(self.amount_median())
                 )
                 self._payments = self.payments().append_column(
-                    self.COL_AMOUNT_SCALED,
+                    PaymentGroupsColumns.InvoicedAmountScaled.name,
                     pc.divide(
                         pc.subtract(
                             self.payments().column(PaymentGroupsColumns.InvoicedAmount.name),
@@ -279,7 +277,7 @@ class PaymentStoriesBuilder:
                 )
             else:
                 self._payments = self.payments().append_column(
-                    self.COL_AMOUNT_SCALED,
+                    PaymentGroupsColumns.InvoicedAmountScaled.name,
                     pa.nulls(self._payments.num_rows, PaymentGroupsColumns.InvoicedAmount.otype).fill_null(0)
                 )
         return self._payments
@@ -290,7 +288,7 @@ class PaymentStoriesBuilder:
         This will play role of x-axis for regression line.
         :return: the payments table with the desired column
         """
-        if self.COL_STORY_TIMELINE not in self.payments().column_names:
+        if PaymentGroupsColumns.StoryTimeline.name not in self.payments().column_names:
             # note that in order to get payments, the method "severity" is invoked
             # this is to ensure that the step is already executed
             _min_due_date = self.severity().group_by(
@@ -300,7 +298,7 @@ class PaymentStoriesBuilder:
             )
 
             self._payments = self._payments.append_column(
-                self.COL_STORY_TIMELINE,
+                PaymentGroupsColumns.StoryTimeline.name,
                 pc.days_between(
                     self.payments().join(
                         _min_due_date,
@@ -313,11 +311,11 @@ class PaymentStoriesBuilder:
         return self._payments
 
     def severity(self) -> pa.Table:
-        if self.COL_SEVERITY not in self.payments().column_names:
-            delay_scaled = self.scaled_delays().column(self.COL_DELAY_SCALED)
-            amount_scaled = self.scaled_amount().column(self.COL_AMOUNT_SCALED)
+        if PaymentGroupsColumns.Severity.name not in self.payments().column_names:
+            delay_scaled = self.scaled_delays().column(PaymentGroupsColumns.DelayDaysScaled.name)
+            amount_scaled = self.scaled_amount().column(PaymentGroupsColumns.InvoicedAmountScaled.name)
             self._payments = self.payments().append_column(
-                self.COL_SEVERITY,
+                PaymentGroupsColumns.Severity.name,
                 pc.multiply(
                     delay_scaled,
                     pc.add(amount_scaled, pc.add(pc.abs(pc.min(amount_scaled)), 1.0))
@@ -333,7 +331,7 @@ class PaymentStoriesBuilder:
             _payments = self.severity().append_column(
                 _col_paid,
                 pc.add(
-                    self.severity().column(self.COL_STORY_TIMELINE),
+                    self.severity().column(PaymentGroupsColumns.StoryTimeline.name),
                     self.severity().column(PaymentGroupsColumns.DelayDays.name)
                 )
             )
@@ -350,12 +348,12 @@ class PaymentStoriesBuilder:
                 (PaymentGroupsColumns.DueDate.name, 'max'),
                 (_col_paid, 'max'),
                 (PaymentGroupsColumns.Id.name, 'count'),
-                (self.COL_DELAY_SCALED, 'sum'),
-                (self.COL_DELAY_SCALED, 'mean'),
-                (self.COL_AMOUNT_SCALED, 'mean'),
-                (self.COL_SEVERITY, 'sum'),
-                (self.COL_SEVERITY, 'mean'),
-                (self.COL_STORY_TIMELINE, 'mean')
+                (PaymentGroupsColumns.DelayDaysScaled.name, 'sum'),
+                (PaymentGroupsColumns.DelayDaysScaled.name, 'mean'),
+                (PaymentGroupsColumns.InvoicedAmountScaled.name, 'mean'),
+                (PaymentGroupsColumns.Severity.name, 'sum'),
+                (PaymentGroupsColumns.Severity.name, 'mean'),
+                (PaymentGroupsColumns.StoryTimeline.name, 'mean')
             ]).rename_columns([
                 PaymentStoriesColumns.FirstPaymentId.name,
                 PaymentStoriesColumns.EntityId.name,
@@ -391,9 +389,9 @@ class PaymentStoriesBuilder:
         _payments = self.story_timeline().select([
             PaymentGroupsColumns.StoryId.name,
             PaymentGroupsColumns.EntityId.name,
-            self.COL_STORY_TIMELINE,
-            self.COL_DELAY_SCALED,
-            self.COL_SEVERITY
+            PaymentGroupsColumns.StoryTimeline.name,
+            PaymentGroupsColumns.DelayDaysScaled.name,
+            PaymentGroupsColumns.Severity.name
         ]).join(
             self.stories().select([
                 PaymentStoriesColumns.StoryId.name,
@@ -406,19 +404,19 @@ class PaymentStoriesBuilder:
         _payments = _payments.append_column(
             _col_distance_to_mean_x,
             pc.subtract(
-                _payments.column(self.COL_STORY_TIMELINE),
+                _payments.column(PaymentGroupsColumns.StoryTimeline.name),
                 _payments.column(PaymentStoriesColumns.DaysSinceBeginMean.name)
             )
         ).append_column(
             _col_distance_to_mean_y_delay,
             pc.subtract(
-                _payments.column(self.COL_DELAY_SCALED),
+                _payments.column(PaymentGroupsColumns.DelayDaysScaled.name),
                 _payments.column(PaymentStoriesColumns.ScaledDelayMean.name)
             )
         ).append_column(
             _col_distance_to_mean_y_severity,
             pc.subtract(
-                _payments.column(self.COL_SEVERITY),
+                _payments.column(PaymentGroupsColumns.Severity.name),
                 _payments.column(PaymentStoriesColumns.SeverityMean.name)
             )
         )
@@ -478,10 +476,8 @@ class PaymentStoriesBuilder:
             keys=PaymentStoriesColumns.StoryId.name
         )
 
-        _col_a0_for_delay = "a0_for_delay"
-        _col_a0_for_severity = "a0_for_severity"
-        _stories_with_a0 = self.stories().append_column(
-            _col_a0_for_delay,
+        self._stories = self.stories().append_column(
+            PaymentStoriesColumns.TendencyConstant_ForDelay.name,
             pc.subtract(
                 self.stories().column(PaymentStoriesColumns.ScaledDelayMean.name),
                 pc.multiply(
@@ -490,7 +486,7 @@ class PaymentStoriesBuilder:
                 )
             )
         ).append_column(
-            _col_a0_for_severity,
+            PaymentStoriesColumns.TendencyConstant_ForSeverity.name,
             pc.subtract(
                 self.stories().column(PaymentStoriesColumns.SeverityMean.name),
                 pc.multiply(
@@ -504,10 +500,10 @@ class PaymentStoriesBuilder:
         _col_theoretical_delay_scaled_from_regrline = 'theoretical-delay-scaled-from-regression-line'
         _col_theoretical_severity_from_regression_line = 'theoretical-severity-from-regression-line'
         _payments = _payments.join(
-            _stories_with_a0.select([
+            self.stories().select([
                 PaymentStoriesColumns.StoryId.name,
-                _col_a0_for_delay,
-                _col_a0_for_severity,
+                PaymentStoriesColumns.TendencyConstant_ForDelay.name,
+                PaymentStoriesColumns.TendencyConstant_ForSeverity.name,
                 PaymentStoriesColumns.TendencyCoefficient_ForDelay.name,
                 PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name
             ]),
@@ -518,37 +514,41 @@ class PaymentStoriesBuilder:
             pc.add(
                 pc.multiply(
                     _payments.column(PaymentStoriesColumns.TendencyCoefficient_ForDelay.name),
-                    _payments.column(self.COL_STORY_TIMELINE)
+                    _payments.column(PaymentGroupsColumns.StoryTimeline.name)
                 ),
-                _payments.column(_col_a0_for_delay)
+                _payments.column(PaymentStoriesColumns.TendencyConstant_ForDelay.name)
             )
         ).append_column(
             _col_theoretical_severity_from_regression_line,
             pc.add(
                 pc.multiply(
                     _payments.column(PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name),
-                    _payments.column(self.COL_STORY_TIMELINE)
+                    _payments.column(PaymentGroupsColumns.StoryTimeline.name)
                 ),
-                _payments.column(_col_a0_for_severity)
+                _payments.column(PaymentStoriesColumns.TendencyConstant_ForSeverity.name)
             )
         )
 
         # 3. calculate r-squared (coefficient of determination)
-        _col_distance_to_mean_y_theoretical_delay = 'distance-to-mean-y-delay-theoretical'
-        _col_distance_to_mean_y_theoretical_severity = 'distance-to-mean-y-severity-theoretical'
+        _col_distance_to_mean_y_theoretical_delay_squared = 'distance-to-mean-y-delay-theoretical-squared'
+        _col_distance_to_mean_y_theoretical_severity_squared = 'distance-to-mean-y-severity-theoretical-squared'
         _col_distance_to_mean_y_delay_squared = 'distance-to-mean-y-delay-squared'
         _col_distance_to_mean_y_severity_squared = 'distance-to-mean-y-severity-squared'
         _payments = _payments.append_column(
-            _col_distance_to_mean_y_theoretical_delay,
-            pc.subtract(
-                _payments.column(_col_theoretical_delay_scaled_from_regrline),
-                _payments.column(self.COL_DELAY_SCALED)
+            _col_distance_to_mean_y_theoretical_delay_squared,
+            pc.power(
+                pc.subtract(
+                    _payments.column(_col_theoretical_delay_scaled_from_regrline),
+                    _payments.column(PaymentGroupsColumns.DelayDaysScaled.name)
+                ), 2
             )
         ).append_column(
-            _col_distance_to_mean_y_theoretical_severity,
-            pc.subtract(
-                _payments.column(_col_theoretical_severity_from_regression_line),
-                _payments.column(self.COL_SEVERITY)
+            _col_distance_to_mean_y_theoretical_severity_squared,
+            pc.power(
+                pc.subtract(
+                    _payments.column(_col_theoretical_severity_from_regression_line),
+                    _payments.column(PaymentGroupsColumns.Severity.name)
+                ), 2
             )
         ).append_column(
             _col_distance_to_mean_y_delay_squared,
@@ -560,8 +560,8 @@ class PaymentStoriesBuilder:
 
         if _payments.num_rows > self._USE_SUBARROW_WHEN_LARGER_THAN_RECORDS:
             _rsquare_components = ArrowAggregate(_payments, [PaymentGroupsColumns.StoryId.name], [
-                    (_col_distance_to_mean_y_theoretical_delay, 'sum'),
-                    (_col_distance_to_mean_y_theoretical_severity, 'sum'),
+                    (_col_distance_to_mean_y_theoretical_delay_squared, 'sum'),
+                    (_col_distance_to_mean_y_theoretical_severity_squared, 'sum'),
                     (_col_distance_to_mean_y_delay_squared, 'sum'),
                     (_col_distance_to_mean_y_severity_squared, 'sum')
             ], tempdir=DIR_PROCESSING.absolute()).aggregate()
@@ -569,23 +569,29 @@ class PaymentStoriesBuilder:
             _rsquare_components = _payments.group_by(
                 PaymentGroupsColumns.StoryId.name
             ).aggregate([
-                (_col_distance_to_mean_y_theoretical_delay, 'sum'),
-                (_col_distance_to_mean_y_theoretical_severity, 'sum'),
+                (_col_distance_to_mean_y_theoretical_delay_squared, 'sum'),
+                (_col_distance_to_mean_y_theoretical_severity_squared, 'sum'),
                 (_col_distance_to_mean_y_delay_squared, 'sum'),
                 (_col_distance_to_mean_y_severity_squared, 'sum')
             ])
 
         _rsquare_components = _rsquare_components.append_column(
             PaymentStoriesColumns.TendencyError_ForDelay.name,
-            pc.divide(
-                _rsquare_components.column(_col_distance_to_mean_y_theoretical_delay + '_sum'),
-                _rsquare_components.column(_col_distance_to_mean_y_delay_squared + '_sum')
+            pc.subtract(
+                pa.nulls(_rsquare_components.num_rows, PaymentStoriesColumns.TendencyError_ForDelay.otype).fill_null(1.0),
+                pc.divide(
+                    _rsquare_components.column(_col_distance_to_mean_y_theoretical_delay_squared + '_sum'),
+                    _rsquare_components.column(_col_distance_to_mean_y_delay_squared + '_sum')
+                )
             )
         ).append_column(
             PaymentStoriesColumns.TendencyError_ForSeverity.name,
-            pc.divide(
-                _rsquare_components.column(_col_distance_to_mean_y_theoretical_severity + '_sum'),
-                _rsquare_components.column(_col_distance_to_mean_y_severity_squared + '_sum')
+            pc.subtract(
+                pa.nulls(_rsquare_components.num_rows, PaymentStoriesColumns.TendencyError_ForSeverity.otype).fill_null(1.0),
+                pc.divide(
+                    _rsquare_components.column(_col_distance_to_mean_y_theoretical_severity_squared + '_sum'),
+                    _rsquare_components.column(_col_distance_to_mean_y_severity_squared + '_sum')
+                )
             )
         )
 
@@ -600,12 +606,15 @@ class PaymentStoriesBuilder:
 
         return self._stories
 
-    def write_stories(self, input_code: str):
+    def write_stories(self, input_code: str) -> Path:
         _file = payment_stories_file(input_code, self.source_codename)
         pq.write_table(self.stories(), _file)
         return _file
 
-
+    def update_payment_groups(self, input_code: str) -> Path:
+        _file = payments_grouped_by_stories_file(input_code, self.source_codename)
+        pq.write_table(self.payments(), _file)
+        return _file
 
 #
 # class PaymentHistoryBuilderPandas:

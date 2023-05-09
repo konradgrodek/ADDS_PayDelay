@@ -283,6 +283,11 @@ class PaymentGroupsColumns:
     DividingCreditStatus = Column("dividing_credit_status", PayDelayColumns.LaterDebtsMaxCreditStatus.otype)
     DividingDaysToDebt = Column("dividing_days_to_debt", PayDelayColumns.LaterDebtsMinDaysToValidFrom(1).otype)
 
+    InvoicedAmountScaled = Column(InvoicedAmount.name + '_scaled', pa.float64())
+    DelayDaysScaled = Column(DelayDays.name + '_scaled', pa.float64())
+    StoryTimeline = Column('days_since_story_begins', pa.uint16())
+    Severity = Column('severity', pa.float64())
+
 
 class PaymentStoriesColumns:
 
@@ -303,7 +308,9 @@ class PaymentStoriesColumns:
     SeveritySum = Column('severity_sum', ScaledDelaySum.otype)
     SeverityMean = Column('severity_mean', ScaledDelaySum.otype)
     DaysSinceBeginMean = Column('days_since_begin_mean', None)
-    TendencyCoefficient_ForDelay = Column('regression_line_a1_for_delay', None)
-    TendencyError_ForDelay = Column('regression_line_rsquare_for_delay', None)
-    TendencyCoefficient_ForSeverity = Column('regression_line_a1_for_severity', None)
-    TendencyError_ForSeverity = Column('regression_line_rsquare_for_severity', None)
+    TendencyCoefficient_ForDelay = Column('regression_line_a1_for_delay', pa.float64())
+    TendencyConstant_ForDelay = Column('regression_line_a0_for_delay', pa.float64())
+    TendencyError_ForDelay = Column('regression_line_rsquare_for_delay', pa.float64())
+    TendencyCoefficient_ForSeverity = Column('regression_line_a1_for_severity', pa.float64())
+    TendencyConstant_ForSeverity = Column('regression_line_a0_for_severity', pa.float64())
+    TendencyError_ForSeverity = Column('regression_line_rsquare_for_severity', pa.float64())
