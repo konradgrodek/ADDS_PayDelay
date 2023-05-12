@@ -4,7 +4,6 @@ from datetime import datetime
 from rich import print
 from rich.console import Console
 
-from lib.input_const import PaymentStoriesDirectory, PaymentsGroupedDirectory, DIR_PROCESSING
 from lib.util import report_processing
 from lib.paystories import *
 

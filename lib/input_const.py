@@ -25,6 +25,9 @@ FEMALE = "FEMALE"
 OUTLIER__MIN_DELAY = -90
 OUTLIER__MAX_DELAY = 365
 
+DENOTES_RISK_MIN_TIME_WINDOW_DAYS = 30
+DENOTES_RISK_MAX_TIME_WINDOW_DAYS = 365
+
 Column = namedtuple('Column', ['name', 'otype'])
 
 
@@ -302,11 +305,9 @@ class PaymentStoriesColumns:
     LaterDebtMinDaysToValidFrom = Column(f"later_debts_min_days_to_valid_from",
                                          PaymentGroupsColumns.DividingDaysToDebt.otype)
     PaymentsCount = Column('payments_count', pa.uint16())
-    ScaledDelaySum = Column(PayDelayColumns.DelayDays.name+'_scaled_sum', pa.float32())
     ScaledDelayMean = Column(PayDelayColumns.DelayDays.name+'_scaled_mean', pa.float32())
     ScaledAmountMean = Column(PayDelayColumns.InvoicedAmount.name+'_scaled_mean', pa.float32())
-    SeveritySum = Column('severity_sum', ScaledDelaySum.otype)
-    SeverityMean = Column('severity_mean', ScaledDelaySum.otype)
+    SeverityMean = Column('severity_mean', ScaledDelayMean.otype)
     DaysSinceBeginMean = Column('days_since_begin_mean', None)
     TendencyCoefficient_ForDelay = Column('regression_line_a1_for_delay', pa.float64())
     TendencyConstant_ForDelay = Column('regression_line_a0_for_delay', pa.float64())
@@ -314,3 +315,6 @@ class PaymentStoriesColumns:
     TendencyCoefficient_ForSeverity = Column('regression_line_a1_for_severity', pa.float64())
     TendencyConstant_ForSeverity = Column('regression_line_a0_for_severity', pa.float64())
     TendencyError_ForSeverity = Column('regression_line_rsquare_for_severity', pa.float64())
+
+    DenotesAnyRisk = Column('denotes_any_risk', pa.bool_())
+    DenotesSignificantRisk = Column('denotes_significant_risk', pa.bool_())

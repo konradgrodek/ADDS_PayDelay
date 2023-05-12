@@ -198,7 +198,7 @@ class PaymentStoriesBuilder:
     """
     """
 
-    _USE_SUBARROW_WHEN_LARGER_THAN_RECORDS = 1000000
+    _USE_SUBARROW_WHEN_LARGER_THAN_RECORDS = 10000
 
     def __init__(self, source_file: Path, codename: str):
         self._file = source_file
@@ -348,10 +348,8 @@ class PaymentStoriesBuilder:
                 (PaymentGroupsColumns.DueDate.name, 'max'),
                 (_col_paid, 'max'),
                 (PaymentGroupsColumns.Id.name, 'count'),
-                (PaymentGroupsColumns.DelayDaysScaled.name, 'sum'),
                 (PaymentGroupsColumns.DelayDaysScaled.name, 'mean'),
                 (PaymentGroupsColumns.InvoicedAmountScaled.name, 'mean'),
-                (PaymentGroupsColumns.Severity.name, 'sum'),
                 (PaymentGroupsColumns.Severity.name, 'mean'),
                 (PaymentGroupsColumns.StoryTimeline.name, 'mean')
             ]).rename_columns([
@@ -364,14 +362,67 @@ class PaymentStoriesBuilder:
                 PaymentStoriesColumns.EndsAt.name,
                 PaymentStoriesColumns.Duration.name,
                 PaymentStoriesColumns.PaymentsCount.name,
-                PaymentStoriesColumns.ScaledDelaySum.name,
                 PaymentStoriesColumns.ScaledDelayMean.name,
                 PaymentStoriesColumns.ScaledAmountMean.name,
-                PaymentStoriesColumns.SeveritySum.name,
                 PaymentStoriesColumns.SeverityMean.name,
                 PaymentStoriesColumns.DaysSinceBeginMean.name,
                 PaymentStoriesColumns.StoryId.name
             ])
+
+            self._stories = self.stories().append_column(
+                pa.field(
+                    PaymentStoriesColumns.DenotesAnyRisk.name, PaymentStoriesColumns.DenotesAnyRisk.otype, False
+                ),
+                pc.fill_null(
+                    pc.and_(
+                        pc.greater(
+                            pc.min_element_wise(
+                                pc.max_element_wise(
+                                    self.stories().column(PaymentStoriesColumns.Duration.name),
+                                    pa.nulls(
+                                        self._stories.num_rows, PaymentStoriesColumns.Duration.otype
+                                    ).fill_null(DENOTES_RISK_MIN_TIME_WINDOW_DAYS)
+                                ),
+                                pa.nulls(
+                                    self._stories.num_rows, PaymentStoriesColumns.Duration.otype
+                                ).fill_null(DENOTES_RISK_MAX_TIME_WINDOW_DAYS)
+                            ),
+                            self.stories().column(PaymentStoriesColumns.LaterDebtMinDaysToValidFrom.name)
+                        ),
+                        pc.greater(
+                            self._stories.column(PaymentStoriesColumns.EndsWithCreditStatus.name), 0
+                        )
+                    ),
+                    False
+                )
+            ).append_column(
+                pa.field(
+                    PaymentStoriesColumns.DenotesSignificantRisk.name,
+                    PaymentStoriesColumns.DenotesSignificantRisk.otype, False
+                ),
+                pc.fill_null(
+                    pc.and_(
+                        pc.greater(
+                            pc.min_element_wise(
+                                pc.max_element_wise(
+                                    self.stories().column(PaymentStoriesColumns.Duration.name),
+                                    pa.nulls(
+                                        self._stories.num_rows, PaymentStoriesColumns.Duration.otype
+                                    ).fill_null(DENOTES_RISK_MIN_TIME_WINDOW_DAYS)
+                                ),
+                                pa.nulls(
+                                    self._stories.num_rows, PaymentStoriesColumns.Duration.otype
+                                ).fill_null(DENOTES_RISK_MAX_TIME_WINDOW_DAYS)
+                            ),
+                            self.stories().column(PaymentStoriesColumns.LaterDebtMinDaysToValidFrom.name)
+                        ),
+                        pc.greater(
+                            self._stories.column(PaymentStoriesColumns.EndsWithCreditStatus.name), 2
+                        )
+                    ),
+                    False
+                )
+            )
 
         return self._stories
 
