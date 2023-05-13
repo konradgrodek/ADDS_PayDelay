@@ -1,4 +1,4 @@
-from lib.input_const import PayDelayColumns, MALE, FEMALE, OUTLIER__MAX_DELAY, OUTLIER__MIN_DELAY
+from lib.input_const import *
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
@@ -16,31 +16,8 @@ class PayDelayStatistics:
     MIN_AMOUNT = 1
     MAX_AMOUNT = 10000
 
-    REPORT_RECORD_COUNT_ALL = "records-count-all"
-    REPORT_RECORD_COUNT_WO_OUTLIERS = "records-count-wo-outliers"
-    REPORT_ENTITIES_COUNT = "entities-count"
-    REPORT_ENTITIES_WITH_LATER_RS4 = "entities-with-later-severe-debt"
-    REPORT_SOCDEM_GENDER_RATIO = 'sociodemographic-m-w-ratio'
-    REPORT_SOCDEM_UNKNOWN_GENDER_RATIO = 'sociodemographic-unknown-gender-ratio'
-    REPORT_SOCDEM_AGE_MEAN = 'sociodemographic-age-mean'
-    REPORT_SOCDEM_AGE_STDDEV = 'sociodemographic-age-stddev'
-    REPORT_SOCDEM_AGE_SKEWNESS = 'sociodemographic-age-skewness'
-    REPORT_AMOUNT_COUNT_UNKNOWN = 'amount-count-unknown'
-    REPORT_AMOUNT_COUNT_TOO_HIGH = 'amount-count-too-high'
-    REPORT_AMOUNT_MEAN = 'amount-mean'
-    REPORT_AMOUNT_STDDEV = 'amount-stddev'
-    REPORT_PAYMENT_DAYSDIFF_MEAN = 'payment-days-diff-mean'
-    REPORT_PAYMENT_DAYSDIFF_STDDEV = 'payment-days-diff-stddev'
-    REPORT_PREPAID_DAYSDIFF_MEAN = 'payment-prepaid-days-mean'
-    REPORT_PREPAID_DAYSDIFF_STDDEV = 'payment-prepaid-days-stddev'
-    REPORT_PREPAID_DAYSDIFF_COUNT = 'payment-prepaid-days-count'
-    REPORT_DELAYED_DAYSDIFF_MEAN = 'payment-delayed-days-mean'
-    REPORT_DELAYED_DAYSDIFF_STDDEV = 'payment-delayed-days-stddev'
-    REPORT_DELAYED_DAYSDIFF_COUNT = 'payment-delayed-days-count'
-    REPORT_PAYMENT_ONTIME_COUNT = 'payment-on-time-count'
-
-    ROC_TPR = 'sensitivity'
-    ROC_FPR = '1 - specifity'
+    # ROC_TPR = 'sensitivity'
+    # ROC_FPR = '1 - specifity'
 
     def __init__(self, source_file: Path, codename: str):
         self._file = source_file
@@ -71,6 +48,14 @@ class PayDelayStatistics:
 
     def count_entities(self) -> int:
         return len(self.content().column(PayDelayColumns.EntityId.name).value_counts())
+
+    def count_entities_with_later_debt(self) -> int:
+        return len(
+            self.content()
+                .filter(pc.field(PayDelayColumns.LaterDebtsMaxCreditStatus.name) > 0)
+                .column(PayDelayColumns.EntityId.name)
+                .value_counts()
+        )
 
     def count_entities_with_later_debt_rc4(self) -> int:
         return len(
@@ -104,12 +89,12 @@ class PayDelayStatistics:
 
         _men, _women, _unknown = 0, 0, 0
         for _count in _counted.itertuples(index=False):
-            if _count[1] == MALE:
-                _men = _count[0]
-            elif _count[1] == FEMALE:
-                _women = _count[0]
+            if _count[0] == MALE:
+                _men = _count[1]
+            elif _count[0] == FEMALE:
+                _women = _count[1]
             else:
-                _unknown = _count[0]
+                _unknown = _count[1]
 
         return _men / _women if _men*_women != 0 else None, \
             _unknown / sum([_men, _women, _unknown]) if _unknown > 0 else None
@@ -166,61 +151,66 @@ class PayDelayStatistics:
     def count_ontime_payments(self) -> int:
         return self.content().filter(pc.field(PayDelayColumns.DelayDays.name) == 0).num_rows
 
-    @cache
-    def calculate_roc_positive_payments(self, risk_class: int, positive_if_no_debt_within_years: int) -> pd.DataFrame:
-        _positive_if_no_debt_within_days = positive_if_no_debt_within_years * 365
-        _later_debt_colname = PayDelayColumns.LaterDebtsMinDaysToValidFrom(risk_class).name
-        _positive_payments = self.content()\
-            .filter(pc.field(PayDelayColumns.DelayDays.name) <= 0)\
-            .select([PayDelayColumns.DelayDays.name, _later_debt_colname])
+    def industry(self) -> str:
+        return self.content().column(PayDelayColumns.Industry.name).unique().to_pylist()[0]
 
-        roc = {self.ROC_FPR: list(), self.ROC_TPR: list()}
-        thresholds = list(range(0, abs(OUTLIER__MIN_DELAY)+1))
-        for threshold in thresholds:
-            positive = _positive_payments.filter(
-                pc.field(_later_debt_colname).is_null() |
-                (pc.field(_later_debt_colname) > _positive_if_no_debt_within_days)
-            ).num_rows
-            true_positive = _positive_payments.filter(
-                (pc.abs(pc.field(PayDelayColumns.DelayDays.name)) >= threshold) &
-                (pc.field(_later_debt_colname).is_null() |
-                (pc.field(_later_debt_colname) > _positive_if_no_debt_within_days))
-            ).num_rows
-            false_positive = _positive_payments.filter(
-                (pc.abs(pc.field(PayDelayColumns.DelayDays.name)) >= threshold) &
-                (pc.field(_later_debt_colname) <= _positive_if_no_debt_within_days)
-            ).num_rows
-            negative = _positive_payments.filter(
-                pc.field(_later_debt_colname) <= _positive_if_no_debt_within_days
-            ).num_rows
-            roc[self.ROC_FPR].append(false_positive / negative if negative != 0 else 0)
-            roc[self.ROC_TPR].append(true_positive / positive if positive != 0 else 0)
-
-        return pd.DataFrame(roc, index=thresholds)
+    # @cache
+    # def calculate_roc_positive_payments(self, risk_class: int, positive_if_no_debt_within_years: int) -> pd.DataFrame:
+    #     _positive_if_no_debt_within_days = positive_if_no_debt_within_years * 365
+    #     _later_debt_colname = PayDelayColumns.LaterDebtsMinDaysToValidFrom(risk_class).name
+    #     _positive_payments = self.content()\
+    #         .filter(pc.field(PayDelayColumns.DelayDays.name) <= 0)\
+    #         .select([PayDelayColumns.DelayDays.name, _later_debt_colname])
+    #
+    #     roc = {self.ROC_FPR: list(), self.ROC_TPR: list()}
+    #     thresholds = list(range(0, abs(OUTLIER__MIN_DELAY)+1))
+    #     for threshold in thresholds:
+    #         positive = _positive_payments.filter(
+    #             pc.field(_later_debt_colname).is_null() |
+    #             (pc.field(_later_debt_colname) > _positive_if_no_debt_within_days)
+    #         ).num_rows
+    #         true_positive = _positive_payments.filter(
+    #             (pc.abs(pc.field(PayDelayColumns.DelayDays.name)) >= threshold) &
+    #             (pc.field(_later_debt_colname).is_null() |
+    #             (pc.field(_later_debt_colname) > _positive_if_no_debt_within_days))
+    #         ).num_rows
+    #         false_positive = _positive_payments.filter(
+    #             (pc.abs(pc.field(PayDelayColumns.DelayDays.name)) >= threshold) &
+    #             (pc.field(_later_debt_colname) <= _positive_if_no_debt_within_days)
+    #         ).num_rows
+    #         negative = _positive_payments.filter(
+    #             pc.field(_later_debt_colname) <= _positive_if_no_debt_within_days
+    #         ).num_rows
+    #         roc[self.ROC_FPR].append(false_positive / negative if negative != 0 else 0)
+    #         roc[self.ROC_TPR].append(true_positive / positive if positive != 0 else 0)
+    #
+    #     return pd.DataFrame(roc, index=thresholds)
 
     def report(self) -> pd.DataFrame:
         return pd.DataFrame({
-            self.REPORT_RECORD_COUNT_ALL: [self.count_rows()],
-            self.REPORT_RECORD_COUNT_WO_OUTLIERS: [self.count_rows_wo_outliers()],
-            self.REPORT_ENTITIES_COUNT: [self.count_entities()],
-            self.REPORT_ENTITIES_WITH_LATER_RS4: [self.count_entities_with_later_debt_rc4()],
-            self.REPORT_SOCDEM_AGE_MEAN: [self.measure_age_stats()[0]],
-            self.REPORT_SOCDEM_AGE_STDDEV: [self.measure_age_stats()[1]],
-            self.REPORT_SOCDEM_AGE_SKEWNESS: [self.measure_age_stats()[2]],
-            self.REPORT_SOCDEM_GENDER_RATIO: [self.measure_gender_ratio()[0]],
-            self.REPORT_SOCDEM_UNKNOWN_GENDER_RATIO: [self.measure_gender_ratio()[1]],
-            self.REPORT_AMOUNT_MEAN: [self.measure_amount_stats()[0]],
-            self.REPORT_AMOUNT_STDDEV: [self.measure_amount_stats()[1]],
-            self.REPORT_AMOUNT_COUNT_UNKNOWN: [self.measure_amount_stats()[2]],
-            self.REPORT_AMOUNT_COUNT_TOO_HIGH: [self.measure_amount_stats()[3]],
-            self.REPORT_PAYMENT_DAYSDIFF_MEAN: [self.measure_payment_daysdiff_stats()[0]],
-            self.REPORT_PAYMENT_DAYSDIFF_STDDEV: [self.measure_payment_daysdiff_stats()[1]],
-            self.REPORT_DELAYED_DAYSDIFF_MEAN: [self.measure_delayed_daysdiff_stats()[0]],
-            self.REPORT_DELAYED_DAYSDIFF_STDDEV: [self.measure_delayed_daysdiff_stats()[1]],
-            self.REPORT_DELAYED_DAYSDIFF_COUNT: [self.measure_delayed_daysdiff_stats()[2]],
-            self.REPORT_PREPAID_DAYSDIFF_MEAN: [self.measure_prepaid_daysdiff_stats()[0]],
-            self.REPORT_PREPAID_DAYSDIFF_STDDEV: [self.measure_prepaid_daysdiff_stats()[1]],
-            self.REPORT_PREPAID_DAYSDIFF_COUNT: [self.measure_prepaid_daysdiff_stats()[2]],
-            self.REPORT_PAYMENT_ONTIME_COUNT: [self.count_ontime_payments()],
+            OverviewReportColNames.Industry: [self.industry()],
+            OverviewReportColNames.RecordsCountAll: [self.count_rows()],
+            OverviewReportColNames.RecordsCountWithoutOutliers: [self.count_rows_wo_outliers()],
+            OverviewReportColNames.EntitiesCount: [self.count_entities()],
+            OverviewReportColNames.EntitiesWithLaterDebt: [self.count_entities_with_later_debt()],
+            OverviewReportColNames.EntitiesWithLaterSevereDebt: [self.count_entities_with_later_debt_rc4()],
+            OverviewReportColNames.AgeMean: [self.measure_age_stats()[0]],
+            OverviewReportColNames.AgeStddev: [self.measure_age_stats()[1]],
+            OverviewReportColNames.AgeSkewness: [self.measure_age_stats()[2]],
+            OverviewReportColNames.GendersRatio: [self.measure_gender_ratio()[0]],
+            OverviewReportColNames.UnknownGenderRatio: [self.measure_gender_ratio()[1]],
+            OverviewReportColNames.AmountUnknownCount: [self.measure_amount_stats()[0]],
+            OverviewReportColNames.AmountTooHighCount: [self.measure_amount_stats()[1]],
+            OverviewReportColNames.AmountMean: [self.measure_amount_stats()[2]],
+            OverviewReportColNames.AmountStandardDeviation: [self.measure_amount_stats()[3]],
+            OverviewReportColNames.PaymentDaysMean: [self.measure_payment_daysdiff_stats()[0]],
+            OverviewReportColNames.PaymentDaysStddev: [self.measure_payment_daysdiff_stats()[1]],
+            OverviewReportColNames.PrepaidDaysMean: [self.measure_prepaid_daysdiff_stats()[0]],
+            OverviewReportColNames.PrepaidDaysStddev: [self.measure_prepaid_daysdiff_stats()[1]],
+            OverviewReportColNames.PrepaidCount: [self.measure_prepaid_daysdiff_stats()[2]],
+            OverviewReportColNames.DelayDaysMean: [self.measure_delayed_daysdiff_stats()[0]],
+            OverviewReportColNames.DelayDaysStddev: [self.measure_delayed_daysdiff_stats()[1]],
+            OverviewReportColNames.DelayDaysCount: [self.measure_delayed_daysdiff_stats()[2]],
+            OverviewReportColNames.PaidOnTimeCount: [self.count_ontime_payments()],
         }, index=[self.source_codename])
 

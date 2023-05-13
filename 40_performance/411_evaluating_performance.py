@@ -1,5 +1,7 @@
 import sys
-import pandas as pd
+sys.path.append('../')
+
+from datetime import datetime
 
 from rich import print
 from rich.console import Console
@@ -17,13 +19,6 @@ if __name__ == '__main__':
 
     _input_code = sys.argv[1]
 
-    source_codename = 'Adbouti'
-    input_code = 202212
-    evaluator = PaymentStoriesPerformanceEvaluator(payment_stories_file(input_code, source_codename), source_codename)
-    evaluator.roc_curve(predictor_col=PaymentStoriesColumns.ScaledDelayMean.name, threshold_min=-3, threshold_max=3,
-                        steps=100, actual_col=PaymentStoriesColumns.DenotesAnyRisk.name)
-
-
     predictor_cols = [
         PaymentStoriesColumns.ScaledDelayMean,
         PaymentStoriesColumns.SeverityMean,
@@ -31,58 +26,93 @@ if __name__ == '__main__':
         PaymentStoriesColumns.TendencyCoefficient_ForSeverity
     ]
 
-    statistics = {}
+    actual_cols = [
+        PaymentStoriesColumns.DenotesAnyRisk,
+        PaymentStoriesColumns.DenotesSignificantRisk
+    ]
+
+    statistics = {
+        StoriesPerformanceReportColNames.StoriesCount: [],
+        StoriesPerformanceReportColNames.StoryLengthMean: [],
+        StoriesPerformanceReportColNames.StoryDurationMean: [],
+        StoriesPerformanceReportColNames.StoriesPerEntity: [],
+        StoriesPerformanceReportColNames.RiskRate: [],
+        StoriesPerformanceReportColNames.SignificantRiskRate: []
+    }
+
+    for _predictor_col in predictor_cols:
+        statistics.update({
+            StoriesPerformanceReportColNames.PredictorMean(_predictor_col): [],
+            StoriesPerformanceReportColNames.PredictorMedian(_predictor_col): [],
+            StoriesPerformanceReportColNames.PredictorStddev(_predictor_col): [],
+            StoriesPerformanceReportColNames.PredictorCountValid(_predictor_col): [],
+        })
+        for _actual_col in actual_cols:
+            statistics.update({
+                StoriesPerformanceReportColNames.PredictorPerformanceROCAUC(_predictor_col, _actual_col): [],
+                StoriesPerformanceReportColNames.PredictorPerformanceF1ScoreMax(_predictor_col, _actual_col): [],
+                StoriesPerformanceReportColNames.PredictorPerformanceF1ScoreMaxTh(_predictor_col, _actual_col): [],
+            })
+
     sources = []
 
     for payment_stories in PaymentStoriesDirectory(DIR_PROCESSING).file_names():
         evaluator = PaymentStoriesPerformanceEvaluator(payment_stories.file(DIR_PROCESSING), payment_stories.codename())
 
+        if evaluator.count_stories() < 100:
+            print(f'[red]The source <{evaluator.source_codename}> '
+                  f'contains less than 100 stories ({evaluator.count_stories()}), it is skipped')
+            continue
+
+        # if evaluator.count_stories() > 50000:
+        #     continue
+
         sources.append(payment_stories.codename())
 
-        aggregations = [
-            (evaluator.predictor_vcount, "count_valid"),
-            (evaluator.predictor_min, "min"),
-            (evaluator.predictor_mean, "mean"),
-            (evaluator.predictor_median, "median"),
-            (evaluator.predictor_max, "max")
-        ]
+        _mark = datetime.now()
+        with console.status(f'[blue]Calculating basic stats for {payment_stories.codename()}', spinner="bouncingBall"):
+            statistics[StoriesPerformanceReportColNames.StoriesCount].append(evaluator.count_stories())
+            statistics[StoriesPerformanceReportColNames.StoryLengthMean].append(evaluator.story_length_mean())
+            statistics[StoriesPerformanceReportColNames.StoryDurationMean].append(evaluator.story_duration_mean())
+            statistics[StoriesPerformanceReportColNames.StoriesPerEntity].append(evaluator.stories_per_legal_entity())
+            statistics[StoriesPerformanceReportColNames.RiskRate].append(
+                evaluator.risk_rate(PaymentStoriesColumns.DenotesAnyRisk.name))
+            statistics[StoriesPerformanceReportColNames.SignificantRiskRate].append(
+                evaluator.risk_rate(PaymentStoriesColumns.DenotesSignificantRisk.name))
+        print(f'[green]<{payment_stories.codename()}> '
+              f'Basic stats done in {(datetime.now() - _mark).total_seconds():.1f} s. '
+              f'Size: {evaluator.count_stories()} stories')
 
-        for col in predictor_cols:
-            for a in aggregations:
-                _n = f"{col.name}_{a[1]}"
-                if _n not in statistics:
-                    statistics[_n] = []
-                statistics[_n].append(a[0](col.name))
+        for _predictor_col in predictor_cols:
+            _mark = datetime.now()
+            with console.status(f'[blue]Calculating statistics of {_predictor_col.name}', spinner="bouncingBall"):
+                statistics[StoriesPerformanceReportColNames.PredictorMean(_predictor_col)].append(
+                    evaluator.predictor_mean(_predictor_col.name))
+                statistics[StoriesPerformanceReportColNames.PredictorMedian(_predictor_col)].append(
+                    evaluator.predictor_median(_predictor_col.name))
+                statistics[StoriesPerformanceReportColNames.PredictorStddev(_predictor_col)].append(
+                    evaluator.predictor_stddev(_predictor_col.name))
+                statistics[StoriesPerformanceReportColNames.PredictorCountValid(_predictor_col)].append(
+                    evaluator.predictor_vcount(_predictor_col.name))
+            print(f'[green]Stats for {_predictor_col.name} '
+                  f'calculated in {(datetime.now() - _mark).total_seconds():.1f} s')
 
-        # print(f"<{payment_stories.codename()}><{PaymentStoriesColumns.ScaledDelayMean.name}> "
-        #       f"min: {evaluator.predictor_min(PaymentStoriesColumns.ScaledDelayMean.name):.1f} "
-        #       f"mean: {evaluator.predictor_mean(PaymentStoriesColumns.ScaledDelayMean.name):.1f} "
-        #       f"median: {evaluator.predictor_median(PaymentStoriesColumns.ScaledDelayMean.name):.1f} "
-        #       f"max: {evaluator.predictor_max(PaymentStoriesColumns.ScaledDelayMean.name):.1f}")
-        # print(f"<{payment_stories.codename()}><{PaymentStoriesColumns.SeverityMean.name}> "
-        #       f"min: {evaluator.predictor_min(PaymentStoriesColumns.SeverityMean.name):.1f} "
-        #       f"mean: {evaluator.predictor_mean(PaymentStoriesColumns.SeverityMean.name):.1f} "
-        #       f"median: {evaluator.predictor_median(PaymentStoriesColumns.SeverityMean.name):.1f} "
-        #       f"max: {evaluator.predictor_max(PaymentStoriesColumns.SeverityMean.name):.1f}")
-        # print(f"<{payment_stories.codename()}><{PaymentStoriesColumns.TendencyCoefficient_ForDelay.name}> "
-        #       f"min: {evaluator.predictor_min(PaymentStoriesColumns.TendencyCoefficient_ForDelay.name):.1f} "
-        #       f"mean: {evaluator.predictor_mean(PaymentStoriesColumns.TendencyCoefficient_ForDelay.name):.1f} "
-        #       f"median: {evaluator.predictor_median(PaymentStoriesColumns.TendencyCoefficient_ForDelay.name):.1f} "
-        #       f"max: {evaluator.predictor_max(PaymentStoriesColumns.TendencyCoefficient_ForDelay.name):.1f}")
-        # print(f"<{payment_stories.codename()}><{PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name}> "
-        #       f"min: {evaluator.predictor_min(PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name):.1f} "
-        #       f"mean: {evaluator.predictor_mean(PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name):.1f} "
-        #       f"median: {evaluator.predictor_median(PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name):.1f} "
-        #       f"max: {evaluator.predictor_max(PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name):.1f}")
-        # print(evaluator.confusion_matrix(
-        #     predictor_col=PaymentStoriesColumns.ScaledDelayMean.name,
-        #     threshold=0.0,
-        #     actual_col=PaymentStoriesColumns.DenotesAnyRisk.name)
-        # )
-        # print(evaluator.recall(
-        #     predictor_col=PaymentStoriesColumns.ScaledDelayMean.name,
-        #     threshold=0.0,
-        #     actual_col=PaymentStoriesColumns.DenotesAnyRisk.name))
+            for _actual_col in actual_cols:
+                with console.status(f'[blue]Evaluating performance of {_predictor_col.name} for {_actual_col.name}',
+                                    spinner="bouncingBall"):
+                    rocauc = evaluator.roc_auc(_predictor_col.name, _actual_col.name)
+                    statistics[StoriesPerformanceReportColNames.PredictorPerformanceROCAUC(
+                        _predictor_col, _actual_col)].append(rocauc)
+                    f1 = evaluator.f1_max(_predictor_col.name, _actual_col.name)
+                    statistics[StoriesPerformanceReportColNames.PredictorPerformanceF1ScoreMax(
+                        _predictor_col, _actual_col)].append(f1[0])
+                    statistics[StoriesPerformanceReportColNames.PredictorPerformanceF1ScoreMaxTh(
+                        _predictor_col, _actual_col)].append(f1[1])
+                print(f'[green]Performance of {_predictor_col.name} for {_actual_col.name} evaluated '
+                      f'in {(datetime.now() - _mark).total_seconds():.1f} s. '
+                      f'F1: {"N/A" if f1[0] is None else f"{f1[0]:.3f}"}, '
+                      f'ROCAUC: {"N/A" if rocauc is None else f"{rocauc:.3f}"}')
 
     report = pd.DataFrame(statistics, index=sources)
-    report.to_csv(DIR_ANALYSIS, f"predictors_{_input_code}.csv")
+    report.to_csv(report_predictors(_input_code))
+    print('[green]DONE')

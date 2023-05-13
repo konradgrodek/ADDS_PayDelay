@@ -10,6 +10,8 @@ import re
 DIR_INPUT = Path('../_in')
 DIR_PROCESSING = Path('../_proc')
 DIR_ANALYSIS = Path('../_analysis')
+DIR_TEX_FIG = Path('../00_the_thesis/fig')
+DIR_TEX_TAB = Path('../00_the_thesis/tab')
 
 PREFIX_PAY_DELAY = 'pay_delay'
 PREFIX_PAYMENTS_WITH_DEBTS = 'pay_delay_w_debts'
@@ -253,6 +255,18 @@ def report_overview_file(input_code: str) -> Path:
     return DIR_ANALYSIS / f'overview_report_{input_code}.csv'
 
 
+def report_predictors(input_code: str) -> Path:
+    return DIR_ANALYSIS / f"predictors_{input_code}.csv"
+
+
+def tex_figure_file(chart_name: str) -> Path:
+    return DIR_TEX_FIG / f"{chart_name}.tex"
+
+
+def tex_tab_file(tab_name: str) -> Path:
+    return DIR_TEX_TAB / f"{tab_name}.tex"
+
+
 def payments_grouped_by_stories_file(input_code: str, source_codename: str) -> Path:
     """
     Returns path to file containing partial, intermediate processing data:
@@ -292,6 +306,34 @@ class PaymentGroupsColumns:
     Severity = Column('severity', pa.float64())
 
 
+class OverviewReportColNames:
+
+    Industry = "industry"
+    RecordsCountAll = "records-count-all"
+    RecordsCountWithoutOutliers = "records-count-wo-outliers"
+    EntitiesCount = "entities-count"
+    EntitiesWithLaterDebt = "entities-with-later-debt"
+    EntitiesWithLaterSevereDebt = "entities-with-later-severe-debt"
+    GendersRatio = 'sociodemographic-m-w-ratio'
+    UnknownGenderRatio = 'sociodemographic-unknown-gender-ratio'
+    AgeMean = 'sociodemographic-age-mean'
+    AgeStddev = 'sociodemographic-age-stddev'
+    AgeSkewness = 'sociodemographic-age-skewness'
+    AmountUnknownCount = 'amount-count-unknown'
+    AmountTooHighCount = 'amount-count-too-high'
+    AmountMean = 'amount-mean'
+    AmountStandardDeviation = 'amount-stddev'
+    PaymentDaysMean = 'payment-days-diff-mean'
+    PaymentDaysStddev = 'payment-days-diff-stddev'
+    PrepaidDaysMean = 'payment-prepaid-days-mean'
+    PrepaidDaysStddev = 'payment-prepaid-days-stddev'
+    PrepaidCount = 'payment-prepaid-days-count'
+    DelayDaysMean = 'payment-delayed-days-mean'
+    DelayDaysStddev = 'payment-delayed-days-stddev'
+    DelayDaysCount = 'payment-delayed-days-count'
+    PaidOnTimeCount = 'payment-on-time-count'
+
+
 class PaymentStoriesColumns:
 
     StoryId = PaymentGroupsColumns.StoryId
@@ -318,3 +360,42 @@ class PaymentStoriesColumns:
 
     DenotesAnyRisk = Column('denotes_any_risk', pa.bool_())
     DenotesSignificantRisk = Column('denotes_significant_risk', pa.bool_())
+
+
+class StoriesPerformanceReportColNames:
+
+    StoriesCount = "stories-count"
+    StoryLengthMean = "story-length-mean"
+    StoryDurationMean = "story-duration-mean"
+    StoriesPerEntity = "stories-per-entity"
+
+    RiskRate = "risk-rate"
+    SignificantRiskRate = "significant-risk-rate"
+
+    @staticmethod
+    def PredictorMean(predictor_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-mean"
+
+    @staticmethod
+    def PredictorMedian(predictor_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-median"
+
+    @staticmethod
+    def PredictorCountValid(predictor_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-count-valid"
+
+    @staticmethod
+    def PredictorStddev(predictor_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-stddev"
+
+    @staticmethod
+    def PredictorPerformanceF1ScoreMax(predictor_column: Column, measurement_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-{measurement_column.name.replace('_', '-')}-F1-max"
+
+    @staticmethod
+    def PredictorPerformanceF1ScoreMaxTh(predictor_column: Column, measurement_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-{measurement_column.name.replace('_', '-')}-F1-max-threshold"
+
+    @staticmethod
+    def PredictorPerformanceROCAUC(predictor_column: Column, measurement_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-{measurement_column.name.replace('_', '-')}-ROC-AUC"
