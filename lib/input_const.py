@@ -28,7 +28,7 @@ OUTLIER__MIN_DELAY = -90
 OUTLIER__MAX_DELAY = 365
 
 DENOTES_RISK_MIN_TIME_WINDOW_DAYS = 30
-DENOTES_RISK_MAX_TIME_WINDOW_DAYS = 365
+DENOTES_RISK_MAX_TIME_WINDOW_DAYS = 2*365
 
 Column = namedtuple('Column', ['name', 'otype'])
 
@@ -260,7 +260,7 @@ def report_predictors(input_code: str) -> Path:
 
 
 def tex_figure_file(chart_name: str) -> Path:
-    return DIR_TEX_FIG / f"{chart_name}.tex"
+    return DIR_TEX_FIG / f"{chart_name}.pgf"
 
 
 def tex_tab_file(tab_name: str) -> Path:
@@ -351,9 +351,11 @@ class PaymentStoriesColumns:
     ScaledAmountMean = Column(PayDelayColumns.InvoicedAmount.name+'_scaled_mean', pa.float32())
     SeverityMean = Column('severity_mean', ScaledDelayMean.otype)
     DaysSinceBeginMean = Column('days_since_begin_mean', None)
+    Tendency_ForDelay = Column(PayDelayColumns.DelayDays.name+'_tendency', ScaledDelayMean.otype)
     TendencyCoefficient_ForDelay = Column('regression_line_a1_for_delay', pa.float64())
     TendencyConstant_ForDelay = Column('regression_line_a0_for_delay', pa.float64())
     TendencyError_ForDelay = Column('regression_line_rsquare_for_delay', pa.float64())
+    Tendency_ForSeverity = Column('severity_tendency', SeverityMean.otype)
     TendencyCoefficient_ForSeverity = Column('regression_line_a1_for_severity', pa.float64())
     TendencyConstant_ForSeverity = Column('regression_line_a0_for_severity', pa.float64())
     TendencyError_ForSeverity = Column('regression_line_rsquare_for_severity', pa.float64())
@@ -387,6 +389,10 @@ class StoriesPerformanceReportColNames:
     @staticmethod
     def PredictorStddev(predictor_column: Column):
         return f"{predictor_column.name.replace('_', '-')}-stddev"
+
+    @staticmethod
+    def PredictorPerformanceF1_00(predictor_column: Column, measurement_column: Column):
+        return f"{predictor_column.name.replace('_', '-')}-{measurement_column.name.replace('_', '-')}-F1-0"
 
     @staticmethod
     def PredictorPerformanceF1ScoreMax(predictor_column: Column, measurement_column: Column):

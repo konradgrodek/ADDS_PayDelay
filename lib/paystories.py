@@ -174,7 +174,7 @@ class PaymentHistoryGrouper:
         ).aggregate(
             [(self.COL_STORY_ID, 'min')]
         ).rename_columns(
-            [self.COL_STORY_ID, PayDelayColumns.Id.name]
+            [PayDelayColumns.Id.name, self.COL_STORY_ID]
         )
 
         return self._story_ids
@@ -214,8 +214,18 @@ class PaymentStoriesBuilder:
         if self._payments is None:
             # FIXME consider loading only part of the columns
             # some columns are calculated by this class and then grouped payments are updated!
-            # on one hand it is cool to have them calculated once, on the other: what is something will change?
-            self._payments = pq.read_table(self._file)
+            # on one hand it is cool to have them calculated once, on the other: what if something will change?
+            self._payments = pq.read_table(self._file, columns=[
+                PaymentGroupsColumns.Id.name,
+                PaymentGroupsColumns.EntityId.name,
+                PaymentGroupsColumns.DueDate.name,
+                PaymentGroupsColumns.DelayDays.name,
+                PaymentGroupsColumns.InvoicedAmount.name,
+                PaymentGroupsColumns.PriorCreditStatusMax.name,
+                PaymentGroupsColumns.StoryId.name,
+                PaymentGroupsColumns.DividingCreditStatus.name,
+                PaymentGroupsColumns.DividingDaysToDebt.name
+            ])
 
         return self._payments
 
@@ -297,16 +307,20 @@ class PaymentStoriesBuilder:
                 [(PaymentGroupsColumns.DueDate.name, 'min')]
             )
 
+            self._payments = self._payments.join(
+                _min_due_date,
+                keys=PaymentGroupsColumns.StoryId.name
+            )
+
             self._payments = self._payments.append_column(
                 PaymentGroupsColumns.StoryTimeline.name,
                 pc.days_between(
-                    self.payments().join(
-                        _min_due_date,
-                        keys=PaymentGroupsColumns.StoryId.name
-                    ).column(PaymentGroupsColumns.DueDate.name+'_min'),
-                    self.payments().column(PaymentGroupsColumns.DueDate.name)
+                    self._payments.column(PaymentGroupsColumns.DueDate.name + '_min'),
+                    self._payments.column(PaymentGroupsColumns.DueDate.name)
                 )
             )
+
+            self._payments = self._payments.remove_column(self._payments.schema.get_field_index(PaymentGroupsColumns.DueDate.name + '_min'))
 
         return self._payments
 
@@ -353,6 +367,7 @@ class PaymentStoriesBuilder:
                 (PaymentGroupsColumns.Severity.name, 'mean'),
                 (PaymentGroupsColumns.StoryTimeline.name, 'mean')
             ]).rename_columns([
+                PaymentStoriesColumns.StoryId.name,
                 PaymentStoriesColumns.FirstPaymentId.name,
                 PaymentStoriesColumns.EntityId.name,
                 PaymentStoriesColumns.BeginsWithCreditStatus.name,
@@ -366,7 +381,6 @@ class PaymentStoriesBuilder:
                 PaymentStoriesColumns.ScaledAmountMean.name,
                 PaymentStoriesColumns.SeverityMean.name,
                 PaymentStoriesColumns.DaysSinceBeginMean.name,
-                PaymentStoriesColumns.StoryId.name
             ])
 
             self._stories = self.stories().append_column(
@@ -579,6 +593,38 @@ class PaymentStoriesBuilder:
                 _payments.column(PaymentStoriesColumns.TendencyConstant_ForSeverity.name)
             )
         )
+
+        # 2A. keep the value of last point - this will be used as the predictor (not the coefficient!)
+        _last_story_record = _payments.group_by(
+            PaymentGroupsColumns.StoryId.name
+        ).aggregate(
+            [(PaymentGroupsColumns.StoryTimeline.name, 'max')]
+        )
+        _tendencies_values = self.stories().join(_last_story_record, PaymentGroupsColumns.StoryId.name)
+        _tendencies_values = _tendencies_values.append_column(
+            PaymentStoriesColumns.Tendency_ForDelay.name,
+            pc.add(
+                pc.multiply(
+                    _tendencies_values.column(PaymentStoriesColumns.TendencyCoefficient_ForDelay.name),
+                    _tendencies_values.column(PaymentGroupsColumns.StoryTimeline.name+'_max')
+                ),
+                _tendencies_values.column(PaymentStoriesColumns.TendencyConstant_ForDelay.name)
+            )
+        ).append_column(
+            PaymentStoriesColumns.Tendency_ForSeverity.name,
+            pc.add(
+                pc.multiply(
+                    _tendencies_values.column(PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name),
+                    _tendencies_values.column(PaymentGroupsColumns.StoryTimeline.name+'_max')
+                ),
+                _tendencies_values.column(PaymentStoriesColumns.TendencyConstant_ForSeverity.name)
+            )
+        ).select([
+            PaymentGroupsColumns.StoryId.name,
+            PaymentStoriesColumns.Tendency_ForDelay.name,
+            PaymentStoriesColumns.Tendency_ForSeverity.name
+        ])
+        self._stories = self.stories().join(_tendencies_values, PaymentGroupsColumns.StoryId.name)
 
         # 3. calculate r-squared (coefficient of determination)
         _col_distance_to_mean_y_theoretical_delay_squared = 'distance-to-mean-y-delay-theoretical-squared'

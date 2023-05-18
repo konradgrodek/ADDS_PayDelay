@@ -5,3 +5,4 @@
 /_proc/*
 /_analysis/*
 tmp*
+/*/.ipynb_checkpoints/

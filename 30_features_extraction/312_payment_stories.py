@@ -1,4 +1,7 @@
 import sys
+import sys
+sys.path.append('../')
+
 from datetime import datetime
 
 from rich import print
@@ -16,14 +19,19 @@ if __name__ == '__main__':
         exit(1)
 
     _input_code = sys.argv[1]
+    _single_source = None if len(sys.argv) < 3 else sys.argv[2]
 
-    # remove files from previous execution(s)
-    print(f'[green]Removing existing files with payment stories from {DIR_PROCESSING.absolute()}')
-    for _psf in PaymentStoriesDirectory(DIR_PROCESSING).file_names():
-        _psf.file(DIR_PROCESSING).unlink()
-        print(f'[red]{_psf.codename()} deleted')
+    if _single_source is None:
+        # remove files from previous execution(s)
+        print(f'[green]Removing existing files with payment stories from {DIR_PROCESSING.absolute()}')
+        for _psf in PaymentStoriesDirectory(DIR_PROCESSING).file_names():
+            _psf.file(DIR_PROCESSING).unlink()
+            print(f'[red]{_psf.codename()} deleted')
 
     for grouped_payments in PaymentsGroupedDirectory(DIR_PROCESSING).file_names():
+        if _single_source is not None and _single_source != grouped_payments.codename():
+            continue
+
         stories_builder = PaymentStoriesBuilder(grouped_payments.file(DIR_PROCESSING), grouped_payments.codename())
 
         _mark = datetime.now()

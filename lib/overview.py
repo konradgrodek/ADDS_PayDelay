@@ -14,7 +14,7 @@ class PayDelayStatistics:
     MAX_AGE = 100
 
     MIN_AMOUNT = 1
-    MAX_AMOUNT = 10000
+    MAX_AMOUNT = 100000
 
     # ROC_TPR = 'sensitivity'
     # ROC_FPR = '1 - specifity'
@@ -47,23 +47,21 @@ class PayDelayStatistics:
         ).num_rows
 
     def count_entities(self) -> int:
-        return len(self.content().column(PayDelayColumns.EntityId.name).value_counts())
+        return pc.count_distinct(self.content().column(PayDelayColumns.EntityId.name)).as_py()
 
     def count_entities_with_later_debt(self) -> int:
-        return len(
+        return pc.count_distinct(
             self.content()
                 .filter(pc.field(PayDelayColumns.LaterDebtsMaxCreditStatus.name) > 0)
                 .column(PayDelayColumns.EntityId.name)
-                .value_counts()
-        )
+        ).as_py()
 
     def count_entities_with_later_debt_rc4(self) -> int:
-        return len(
+        return pc.count_distinct(
             self.content()
                 .filter(pc.field(PayDelayColumns.LaterDebtsMaxCreditStatus.name) == 4)
                 .column(PayDelayColumns.EntityId.name)
-                .value_counts()
-        )
+        ).as_py()
 
     @cache
     def measure_age_stats(self) -> tuple[float, float, float]:
@@ -106,7 +104,7 @@ class PayDelayStatistics:
             (pc.field(PayDelayColumns.InvoicedAmount.name) <= self.MAX_AMOUNT))\
             .column(PayDelayColumns.InvoicedAmount.name)
         _amount_unknown = self.content().filter(
-            (pc.field(PayDelayColumns.InvoicedAmount.name) < self.MIN_AMOUNT))
+            (pc.field(PayDelayColumns.InvoicedAmount.name).is_null()))
         _amount_too_high = self.content().filter(
             (pc.field(PayDelayColumns.InvoicedAmount.name) > self.MAX_AMOUNT))
 
@@ -199,10 +197,10 @@ class PayDelayStatistics:
             OverviewReportColNames.AgeSkewness: [self.measure_age_stats()[2]],
             OverviewReportColNames.GendersRatio: [self.measure_gender_ratio()[0]],
             OverviewReportColNames.UnknownGenderRatio: [self.measure_gender_ratio()[1]],
-            OverviewReportColNames.AmountUnknownCount: [self.measure_amount_stats()[0]],
-            OverviewReportColNames.AmountTooHighCount: [self.measure_amount_stats()[1]],
-            OverviewReportColNames.AmountMean: [self.measure_amount_stats()[2]],
-            OverviewReportColNames.AmountStandardDeviation: [self.measure_amount_stats()[3]],
+            OverviewReportColNames.AmountMean: [self.measure_amount_stats()[0]],
+            OverviewReportColNames.AmountStandardDeviation: [self.measure_amount_stats()[1]],
+            OverviewReportColNames.AmountUnknownCount: [self.measure_amount_stats()[2]],
+            OverviewReportColNames.AmountTooHighCount: [self.measure_amount_stats()[3]],
             OverviewReportColNames.PaymentDaysMean: [self.measure_payment_daysdiff_stats()[0]],
             OverviewReportColNames.PaymentDaysStddev: [self.measure_payment_daysdiff_stats()[1]],
             OverviewReportColNames.PrepaidDaysMean: [self.measure_prepaid_daysdiff_stats()[0]],

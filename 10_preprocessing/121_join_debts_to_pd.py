@@ -61,7 +61,7 @@ if __name__ == '__main__':
             ).aggregate(
                 [(DebtColumns.CreditStatus.name, 'max')]
             ).rename_columns(
-                [PayDelayColumns.PriorDebtsMaxCreditStatus.name, PayDelayColumns.Id.name]
+                [PayDelayColumns.Id.name, PayDelayColumns.PriorDebtsMaxCreditStatus.name]
             ),
             keys=PayDelayColumns.Id.name,
             right_keys=PayDelayColumns.Id.name,
@@ -83,11 +83,14 @@ if __name__ == '__main__':
         pay_delay = pay_delay.join(
             pay_delay_with_later_debts.group_by(
                 PayDelayColumns.Id.name
-            ).aggregate(
-                [(DebtColumns.CreditStatus.name, 'max'), (DebtColumns.CreditStatus.name, 'count')]
-            ).rename_columns(
-                [PayDelayColumns.LaterDebtsMaxCreditStatus.name, PayDelayColumns.LaterDebtsCount.name, PayDelayColumns.Id.name]
-            ),
+            ).aggregate([
+                (DebtColumns.CreditStatus.name, 'max'),
+                (DebtColumns.CreditStatus.name, 'count')
+            ]).rename_columns([
+                PayDelayColumns.Id.name,
+                PayDelayColumns.LaterDebtsMaxCreditStatus.name,
+                PayDelayColumns.LaterDebtsCount.name
+            ]),
             keys=PayDelayColumns.Id.name,
             right_keys=PayDelayColumns.Id.name,
             join_type='left outer'
@@ -104,7 +107,7 @@ if __name__ == '__main__':
                 ).aggregate(
                     [(DebtColumns.ValidFrom.name, 'min')]
                 ).rename_columns(
-                    [_col.name, PayDelayColumns.Id.name]
+                    [PayDelayColumns.Id.name, _col.name]
                 ),
                 keys=PayDelayColumns.Id.name,
                 right_keys=PayDelayColumns.Id.name,

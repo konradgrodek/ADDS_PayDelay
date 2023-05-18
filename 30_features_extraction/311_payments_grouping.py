@@ -1,4 +1,5 @@
 import sys
+sys.path.append('../')
 from datetime import datetime
 
 from rich import print

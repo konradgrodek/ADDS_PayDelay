@@ -23,7 +23,9 @@ if __name__ == '__main__':
         PaymentStoriesColumns.ScaledDelayMean,
         PaymentStoriesColumns.SeverityMean,
         PaymentStoriesColumns.TendencyCoefficient_ForDelay,
-        PaymentStoriesColumns.TendencyCoefficient_ForSeverity
+        PaymentStoriesColumns.TendencyCoefficient_ForSeverity,
+        PaymentStoriesColumns.Tendency_ForDelay,
+        PaymentStoriesColumns.Tendency_ForSeverity
     ]
 
     actual_cols = [
@@ -52,6 +54,14 @@ if __name__ == '__main__':
                 StoriesPerformanceReportColNames.PredictorPerformanceROCAUC(_predictor_col, _actual_col): [],
                 StoriesPerformanceReportColNames.PredictorPerformanceF1ScoreMax(_predictor_col, _actual_col): [],
                 StoriesPerformanceReportColNames.PredictorPerformanceF1ScoreMaxTh(_predictor_col, _actual_col): [],
+            })
+
+    # F1 for 0.0 threshold (tendencies coefficients)
+    for _predictor_col in (PaymentStoriesColumns.TendencyCoefficient_ForDelay,
+                           PaymentStoriesColumns.TendencyCoefficient_ForSeverity):
+        for _actual_col in actual_cols:
+            statistics.update({
+                StoriesPerformanceReportColNames.PredictorPerformanceF1_00(_predictor_col, _actual_col): []
             })
 
     sources = []
@@ -110,8 +120,20 @@ if __name__ == '__main__':
                         _predictor_col, _actual_col)].append(f1[1])
                 print(f'[green]Performance of {_predictor_col.name} for {_actual_col.name} evaluated '
                       f'in {(datetime.now() - _mark).total_seconds():.1f} s. '
-                      f'F1: {"N/A" if f1[0] is None else f"{f1[0]:.3f}"}, '
+                      f'F1-max: {"N/A" if f1[0] is None else f"{f1[0]:.3f}"}, '
                       f'ROCAUC: {"N/A" if rocauc is None else f"{rocauc:.3f}"}')
+
+        for _predictor_col in (PaymentStoriesColumns.TendencyCoefficient_ForDelay,
+                               PaymentStoriesColumns.TendencyCoefficient_ForSeverity):
+            with console.status(f'[blue]Calculating F1(0.0) score of {_predictor_col.name}', spinner="bouncingBall"):
+                for _actual_col in actual_cols:
+                    _mark = datetime.now()
+                    f1 = evaluator.f1_score(_predictor_col.name, 0.0, _actual_col.name)
+                    statistics[StoriesPerformanceReportColNames.PredictorPerformanceF1_00(
+                        _predictor_col, _actual_col)].append(f1)
+                    print(f'[green]F1 score of performance of {_predictor_col.name} for {_actual_col.name} '
+                          f'evaluated in {(datetime.now() - _mark).total_seconds():.1f} s. '
+                          f'F1: {"N/A" if f1 is None else f"{f1:.3f}"}')
 
     report = pd.DataFrame(statistics, index=sources)
     report.to_csv(report_predictors(_input_code))

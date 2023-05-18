@@ -10,7 +10,15 @@
 % Load packages
 \usepackage{amsmath}
 \usepackage{graphicx}
-% \usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfplots}
+\DeclareUnicodeCharacter{2212}{−}
+\usepgfplotslibrary{groupplots,dateplot}
+\usetikzlibrary{patterns,shapes.arrows}
+\pgfplotsset{compat=newest}
+\usepackage{booktabs}
+\usepackage[colorlinks=false]{hyperref}
+\usepackage{makecell}
 
 \begin{document}
 
@@ -97,8 +105,15 @@ This section will provide more elaborate description of the problem and will pro
 
 \subsection{The problem}
 
-Crif AG is a Swiss economic information bureau delivering solutions for clients interested in checking creditworthiness of both private and corporate individuals. For number of years the company was collecting information about paid bills issued by Crif's customers. Till now the information was not included in the procedures of calculating probability of default (so-called \textit{scoring}). The aim of this work is to explore the potential hidden in the data to support process of evaluating creditworthiness. In order to do that, certain attributes of the data must be explored and confronted with history of negative payment information (debts). As a result, statistical evidence will prove - or not - existence of correlation between those attributes (variables) and the probability of default. The correlation must be backed up by plausible causation.\par
-It is important to stress that the analysis will be performed exclusively on data recorded for private persons. \textbf{TBD: how about single-person-companies?}\par
+Crif AG is a Swiss economic information bureau delivering solutions for clients interested in checking creditworthiness of both private and corporate individuals.
+For number of years the company was collecting information about paid bills issued by Crif's customers.
+Till now the information was not included in the procedures of calculating probability of default (so-called \textit{scoring}).
+The aim of this work is to explore the potential hidden in the data to support process of evaluating creditworthiness.
+In order to do that, certain attributes of the data must be explored and confronted with history of negative payment information (debts).
+As a result, statistical evidence will prove - or not - existence of correlation between those attributes (variables)
+and the probability of default. The correlation must be backed up by plausible causation.\par
+
+It is important to stress that the analysis will be performed exclusively on data recorded for private persons.\par
 
 \subsection{The data}
 
@@ -106,47 +121,68 @@ The data in scope of the analysis can be divided into three types: payment delay
 
 \subsubsection{Payment delay}
 
-As it was already mentioned, the \textbf{payment delay} term may be misleading. What is understood by this term can be more precisely explained as \textbf{the performance of paying the bill}. Once issued, the bill may be paid in advance, on time or with a certain delay.\par
+As it was already mentioned, the \textbf{payment delay} term may be misleading.
+What is understood by this term can be more precisely explained as \textbf{the performance of paying the bill}.
+Once issued, the bill may be paid in advance, on time or with a certain delay.\par
 \vspace{5pt}
 The \textbf{payment delay} comes with the following attributes:
 \begin{itemize}
     \item Bill issue date
     \item The delay measured as the number of days between the issue and payment dates. May be negative.
-    \item The identification of the bill issuer (\textit{source})
+    \item The billed amount. May be missing (unknown)
+    \item The identification of the bill issuer (the \textit{source})
     \item The industrial sector of the bill issuer
-    \item The identification of the bill payer
+    \item The identification of the bill payer (also related to as \textit{legal entity})
 \end{itemize}
 
-Most of listed attributes are obligatorily present in the data set. The exception is the industrial sector of the bill issuer, which may be unknown.
+Except invoced amount, all of the listed attributes are obligatorily present in the data set.
+The industrial sector of the bill issuer may be unknown, but is still delivered as separate category.
 
 \subsubsection{Debt}
+\label{section:intro-debt}
 
-The \textbf{debt} is a recorded negative payment experience. It has certain severity and validity period. The list of attributes:
+The \textbf{debt} is a recorded negative payment experience. It has certain severity and validity period.
+The list of attributes:
 \begin{itemize}
-    \item Validity period: start and end date (note that the later can be in future)
-    \item Amount owned - will not be used in the analysis
+    \item Validity period: start and end date (note that the second may be in the future)
+    \item Amount owned - it will not be used in the analysis
     \item Severity
-    \item The identification of the debtor
+    \item The identification of the debtor, which will be used to connect to payment-delay set
 \end{itemize}
 
-All listed attributes are obligatorily present in the data set.
+All listed attributes are obligatorily present in the data set.\par
+Severity of the debt comes as four categories, marked with numbers 1 to 4. The higher the number is,
+the more severe the debt information is. Not to get into too much details:
+1 represents first step of vindication process whereas 4 is reserved for cases when
+debtor persistently refuses to repay the liability.\par
+For sake of the analysis, the severity will be split into two groups, where existence of a debt from given group comes with:
+\begin{itemize}
+    \item mild risk of incorrect payment behavior (1 - 2),
+    \item high risk of incorrect payment behavior (3 - 4).
+\end{itemize}
 
 \subsubsection{Legal entity}
 
-Only sociodemographic information is accessible for sake of this analysis. This includes only very limited set of attributes:
+Only sociodemographic information is accessible for sake of this analysis. 
+This includes only very limited set of attributes:
 
 \begin{itemize}
     \item Age (rounded to full years)
     \item Gender
-    \item Location (the highest accuracy: city/town/village)
 \end{itemize}
 
-Each of the listed attributes may appear undefined (none of them is obligatory).
+Each of the listed attributes may appear undefined (none of them is obligatory).\par 
 
+\textbf{Analysing sociodemographic data is out of scope for this analysis.
+The goal is to find negative patters in payment behavior, not to link it to particular age or gender}
 
 \subsection{The quality challenge}
-One of the challenges to be faced in order to answer on the formulated problem is how to deal with the source quality issues. The data is coming from various sources and the quality of delivery is often questionable. The part of the analysis will be to measure the quality of the sources, maybe to categorize them in quality groups.\par
-How to categorize the sources? What measurements shall be used to calculate the quality of the source? The following ideas will be explored:
+\label{section:intro-quality-challenge}
+
+One of the challenges to be faced in order to answer on the formulated problem is how to deal with the source quality issues.
+The data is coming from various sources and the quality of delivery is often questionable.
+The exploratory part of the analysis will focus on pointing out the differences between the sources.\par
+What measurements shall be used to calculate the quality of the source? The following ideas will be explored:
 \begin{itemize}
     \item \textbf{Number of recorded payments}. The simplest - but often misleading - way to asses the usefulness of the data source. Obviously, the more records the better, but if the data is not reliable, the large volume will not make it better.
     \item \textbf{Average number of paid bills per person}. From the two sources the one providing longer history of payments per person will most likely be more useful than the one providing single payments.
@@ -158,178 +194,402 @@ How to categorize the sources? What measurements shall be used to calculate the 
 
 \pagebreak
 
+\subsection{The technology}
+
+\textbf{TBD} This section will explain what technology was used to perform the analysis.
+
 \section{Exploratory analysis}
+
+The goal of the exploratory analysis is to get to know data better.
+It should consist of checking metrics that gives an idea on quantity (how many records are there? what is the count of groups of records?) as well as quality (are the records meet criteria that will not cause potential errors in further analysis?)
 
 \subsection{The data overview}
 
-Here I will present the overview on the whole set of data
+The data is composed of nearly 180 million payment observations and over 8 million debts.
+Table \ref{tab:000_overview_whole_dataset} presents the very basic statistics on the whole set. \par
+\input{tab/000_overview_whole_dataset}
+First conclusions are:
+\begin{itemize}
+    \item Average delay of paid bills is negative, so in general the data set does provide more optimistic data (bills paid in advance) than negative (delays in payments)
+    \item Significant part of the payment records (over half of it) shows the bills to be paid exactly on time.
+    \item The amount is quite often unknown
+\end{itemize}
 
-\subsection{Analysis of sources}
+To have better view on characteristic of the most important attribute: the delay in days, a histogram is presented on figure \ref{fig:001_delay_days_hist}.
+The y-axis was limited to maximum 10\% as the 55\% peak in delay-days=0 makes the chart unreadable.
+There is one more peak in observations, placed at -30 days.
+As later analysis will show, this is an effect of two sources delivering abundance of records with fixed value of -30 between the issue date and payment date.\par
 
-In this section results of analysis of differences and similarities of the sources will be presented. The goal is to find a way (or prove it is impossible) to categorize the sources from quality point of view
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/001_delay_histogram.pgf}
+    \end{center}
+    \caption{Histogram of delay days of all recorded payments}
+    \label{fig:001_delay_days_hist}
+\end{figure}
 
-\subsubsection{Overview}
+To sum up, the results so far confirms intuition to drill down the analysis not on the whole set, but rather on particular sources separately.
 
-In here the overview on data from perspective of single source will be presented.
+\subsubsection{Outliers}
 
-\subsubsection{Chosen sources analysis - preliminary}
-\textbf{Note: this is preliminary analysis, most likely will not be part of final document}.\par
-
-In this section three example sources will be checked in details. The names of the sets (\textit{Aarau, Baar, Cham}) does not correspond to any characteristic of the sources. These are just nicknames, taken from small Swiss towns\par
-\vspace{10pt}
-\textbf{Basic counts}\par
-Table \ref{tab:chosen-sources-quantitative} presents the comparison between the three sets respecting the counts of the records and average delay.\par
-
-\begin{table}[!htbp] \centering
-  \caption{Quantitative overview of the chosen sources}
-  \label{tab:chosen-sources-quantitative}
-\begin{tabular}{@{\extracolsep{5pt}} cccc}
-\\[-1.8ex]\hline
-\hline \\[-1.8ex]
- & Bills count & Persons count & Avg bills per person \\
-\hline \\[-1.8ex]
-Aarau & $3,913,966$ & $1,492,493$ & $2$ \\
-Baar & $8,361,151$ & $1,128,751$ & $7$ \\
-Cham & $3,311,629$ & $145,421$ & $22$ \\
-\hline \\[-1.8ex]
-\end{tabular}
-\end{table}
-
-First noticeable difference is how many on average payment delays are delivered per person. Clearly \textit{Aarau} delivers only single entries, but for large number of different legal entities, whereas in \textit{Cham} we can expect more payment delays per person.\par
-
-\vspace{10pt}
-
-\textbf{Identify outliers}\par
-
-Table \ref{tab:outlier-def} presents definition of unreliable data (outliers)
+Table \ref{tab:002_outlier_def} presents definition of unreliable data (outliers)
 
 \begin{table}[!htbp]
     \centering
     \caption{Rules to identify outliers}
-    \label{tab:outlier-def}
+    \label{tab:002_outlier_def}
     \begin{tabular}{c c p{0.6\linewidth}}
     \hline\hline \\
     Attribute & Value & Reasoning \\
     \hline \\
-    Minimum delay & -30 & Usually the bill should be paid after a month, so if one pays it immediately, the delay is -30 \\
-    Maximum delay & 182 & An arbitrary number. The assumption is that delay greater than half a year should trigger collection of the overdue, which makes it being a \textit{debt}, no longer a \textit{delay} \\
-    Minimum amount & 1 CHF & Pretty obvious, the smaller amounts are considered to be incorrect \\
-    Maximum amount & 10000 CHF & An arbitrary number chosen by examining the data \\
+    Minimum delay & -90 & Usually the bill should be paid after a month. Just to be on safe side it is assumed that the bill may be paid even three months before due-date\\
+    Maximum delay & 365 & An arbitrary number. The assumption is that delay greater than a year should trigger collection of the overdue, which makes it being a \textit{debt}, no longer a \textit{delay} \\
+    Minimum amount & 0.0+ CHF & Amount of 0.0 CHF is treated as invalid, but is not marked as outlier. This would eliminate almost half of the records. Negative numbers are not acceptable \\
+    Maximum amount & +Inf & It was decided not to put any upper limits for amount. Any arbitrary level would be very deficult to defend \\
     \end{tabular}
 \end{table}
 
-Once defined, the outliers in each of the sources can be counted. Table \ref{tab:outliers-ratio} presents the results.\par
+The outliers will be presented separately per each source in the next paragraph.\par
 
-\begin{table}[hbt!] \centering
-  \caption{Ratio of outliers}
-  \label{tab:outliers-ratio}
-\begin{tabular}{@{\extracolsep{5pt}} cccc}
-\\[-1.8ex]\hline
-\hline \\[-1.8ex]
- & Incorrect delay & Incorrect amount & To reject \\
-\hline \\[-1.8ex]
-Aarau & $8.770$ & $0.005$ & $8.773$ \\
-Baar & $0.285$ & $0.135$ & $0.419$ \\
-Cham & $0.742$ & $0.057$ & $0.793$ \\
-\hline \\[-1.8ex]
-\end{tabular}
-\end{table}
+\subsection{Analysis of sources}
 
-The high number of outliers in case of \textit{Aarau} is disturbing (out of scope right now).\par
+The term \textit{source} relates to particular client of Crif AG that delivers the paid bills.
+As the names of these clients may not be revealed for sake of this analysis, every of over one hundred sources was given a code-name, a fake, English-like word.
+Generating these nicknames was pretty interesting exercise.
+The algorithm is presented in python module \href{https://github.com/konradgrodek/ADDS_PayDelay/blob/master/lib/util.py}{here}.
 
-\vspace{10pt}
+\subsubsection{Overview}
 
-\textbf{Comparison of descriptive statistics}
+The input data set covers over a hundred of different sources.
+The table \ref{tab:100_overview_sources} lists top 50 sources, sorted by the amount of records.
+For each source number of interesting metrics is presented, which do correspond with the list presented in section \nameref{section:intro-quality-challenge}, but not all of them are addressed.
+This is because the data is not yet prepared to reveal potential in series of payments.
+This will be subject for analysis in section \nameref{section:exploratory-stories} \par
 
-Tables \ref{tab:src-summary-aarau}, \ref{tab:src-summary-baar}, \ref{tab:src-summary-cham} present the summary statistics of the three chosen sets.
+\input{tab/100_overview_sources}
 
-\begin{table}[!htbp] \centering
-  \caption{Summary of Aarau data set}
-  \label{tab:src-summary-aarau}
-\begin{tabular}{@{\extracolsep{5pt}}lccccc}
-\\[-1.8ex]\hline
-\hline \\[-1.8ex]
-Statistic & \multicolumn{1}{c}{N} & \multicolumn{1}{c}{Mean} & \multicolumn{1}{c}{St. Dev.} & \multicolumn{1}{c}{Min} & \multicolumn{1}{c}{Max} \\
-\hline \\[-1.8ex]
-delay\_days & 3,570,582 & 6.787 & 34.483 & $-$30 & 182 \\
-invoiced\_amount & 3,570,582 & 235.372 & 390.469 & 1.000 & 10,000.000 \\
-sex & 3,566,986 & 1.635 & 0.481 & 1 & 2 \\
-age & 3,545,847 & 41.968 & 14.222 & 18 & 100 \\
-\hline \\[-1.8ex]
-\end{tabular}
-\end{table}
+Addressing ideas of how the quality of data should be measured, the following observations are worth to mention.
+\begin{itemize}
+    \item \textbf{Quantity} The amount of records even for 50\textsuperscript{th} source (\textit{Deevfio}, ~36k) seems to be plausible to treat it separately from other sources
+    \item \textbf{Density} Unfortunately many of the sources do not provide satisfactory \textit{density} of payments, as measured by \textit{Per entity} metric. Some sources come with average count of payment records per person exceeding 20 (\textit{Addis, Estry, Blebout}), whereas other clearly delivers at most few records per person (e.g. \textit{Eneiiu}, 1.27)
+    \item \textbf{Variability} When it comes to overrepresentation of \textit{0-delay} records and variability of delay-days, there are no good news. Numerous sources have standard deviation close to zero, which means that the values are highly concentrated over mean, which also in many cases is 0 (or close). Examples are \textit{Ganpe, Otheso, Bernev, Othfole}...
+    \item \textbf{Completness} The high number of outliers does not affect many sources with an exception of \textit{Tleveri}, which has rate of outliers reaching 37\%.
+    \item \textbf{Completness} The problem of undelivered amount does affect only two large sources (\textit{Addis, Apacun}). The invoiced amount will therefore be used in further analysis, but respecting the fact that for certain sources the results will not provide any meaningful information.
+\end{itemize}
 
-\begin{table}[!htbp] \centering
-  \caption{Summary of Baar data set}
-  \label{tab:src-summary-baar}
-\begin{tabular}{@{\extracolsep{5pt}}lccccc}
-\\[-1.8ex]\hline
-\hline \\[-1.8ex]
-Statistic & \multicolumn{1}{c}{N} & \multicolumn{1}{c}{Mean} & \multicolumn{1}{c}{St. Dev.} & \multicolumn{1}{c}{Min} & \multicolumn{1}{c}{Max} \\
-\hline \\[-1.8ex]
-delay\_days & 8,326,089 & $-$0.847 & 22.901 & $-$30 & 182 \\
-invoiced\_amount & 8,326,089 & 34.731 & 38.331 & 1.000 & 9,765.000 \\
-sex & 8,323,436 & 1.819 & 0.385 & 1 & 2 \\
-age & 8,187,482 & 49.164 & 14.630 & 18 & 100 \\
-\hline \\[-1.8ex]
-\end{tabular}
-\end{table}
+Considering the above, table \ref{tab:101_big_sources_evaluation} summarizes the overall subjective evaluation of the biggest sources.
 
-\begin{table}[!htbp] \centering
-  \caption{Summary of Cham data set}
-  \label{tab:src-summary-cham}
-\begin{tabular}{@{\extracolsep{5pt}}lccccc}
-\\[-1.8ex]\hline
-\hline \\[-1.8ex]
-Statistic & \multicolumn{1}{c}{N} & \multicolumn{1}{c}{Mean} & \multicolumn{1}{c}{St. Dev.} & \multicolumn{1}{c}{Min} & \multicolumn{1}{c}{Max} \\
-\hline \\[-1.8ex]
-delay\_days & 8,326,089 & $-$0.847 & 22.901 & $-$30 & 182 \\
-invoiced\_amount & 8,326,089 & 34.731 & 38.331 & 1.000 & 9,765.000 \\
-sex & 8,323,436 & 1.819 & 0.385 & 1 & 2 \\
-age & 8,187,482 & 49.164 & 14.630 & 18 & 100 \\
-\hline \\[-1.8ex]
-\end{tabular}
-\end{table}
-
-\vspace{20pt}
-
-\textbf{Correlation and histograms}\par
-
-In the next step the analysis of correlation between delay, amount and age will be performed. The analysis was made on 10k random subset of data.\par
-Figures \ref{fig:ex-src-aarau-corr}, \ref{fig:ex-src-baar-corr} and \ref{fig:ex-src-cham-corr} shows the results. Clearly there are no correlations between the listed attributes, which actually is a good sign.
-
-\begin{figure}
+\begin{table}[!htbp]
     \centering
-    \includegraphics[width=\textwidth]{fig/ex-src-aarau-corr.png}
-    \caption{Correlation analysis for Aaarau data set}
-    \label{fig:ex-src-aarau-corr}
-\end{figure}
-\begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{fig/ex-src-baar-corr.png}
-    \caption{Correlation analysis for Baar data set}
-    \label{fig:ex-src-baar-corr}
-\end{figure}
-\begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{fig/ex-src-cham-corr.png}
-    \caption{Correlation analysis for Cham data set}
-    \label{fig:ex-src-cham-corr}
+    \caption{Evaluation of biggest sources}
+    \label{tab:101_big_sources_evaluation}
+    \begin{tabular}{c c p{0.8\linewidth}}
+    \hline\hline \\
+    Source & OK/KO & Evaluation \\
+    \hline \\
+    Addis & KO & The largest source comes with satisfactory average count of records per entity, but missing information on amount and low delay-days standard deviation gives little chance to find interesting payment patterns\\
+    Estry & - & The evaluation is unclear: it provides good density of records, but the variability is quite low\\
+    Ganpe & KO & Even though the density of 15 records per entity sounds promising, all records come with 0-delay, which gives little chance to have meaningful results\\
+    Tionse & OK & Maybe the density is not as high as for previous sources, but the variability is very promising. The source is definately worth exploring\\
+    Parfae & OK & Ditto\\
+    \hline \\
+    \textbf{Overall} & ? & \textbf{In spite of low variability of the data and/or missing data, the prospects of success are unclear}\\
+    \end{tabular}
+\end{table}
+
+
+\subsubsection{The profiles}
+
+Comparisions of the typical profile of payer per each source are visualized on figure \ref{fig:101_typical_payer}.
+The size of the circles are linearly related to count of delivered records.
+The sources delivering amount for less than 90 \% are put away. \par
+The observations are not far from intuition and already presented statistics.
+The most of the sources provides paid bills of relatively small amount and not too much delayed
+(actually, the tendency in favor of pre-paid bills is visible also here).
+However, some sources are far away from the main trend, for example \textit{Ningui}) provides bills of high amount
+(over 10k CHF on average), all of them paid 30 days before due date.
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/101_src_rel_typical_payer.pgf}
+    \caption{Typical payer per source. On right-hand zoom on most crowded part of chart}
+    \label{fig:101_typical_payer}
+    \end{center}
 \end{figure}
 
-\subsubsection{The typical payer}
+\subsubsection{Variability}
 
-Subsequent sources may differ not only in quality, but also in typical payer of their bills. For example: overrepresentation of women, more elderly payers, higher amounts. \textbf{Idea: to present sources on two-dimensions: average amount versus average delay. }
+Standard deviation $\sigma$ is often taken as measurement of variability.
+In order to check whether the sources follow similar - or different - pattern regarding how variable the data are,
+on left-hand side figure \ref{fig:102_variability} variability of delay is confronted with variability of
+invoiced amount for each source.
+On the right-hand the variability of delay was shown in function of the average delay.
+Sizes of data points correspond with number of records delivered by paricular source.
+\par
+The outcome of comparison of amount and delay variability is that majority of the sources have quite low standard
+deviation of amount, with one exception - already mentioned source with very high amounts.
+Regarding the delay variability versus mean, the chart gives visual confirmations of fact that most of the high-volumne
+sources have low variability coming along with average delay close to zero.
 
-\subsection{The source quality}
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/102_src_rel_variability.pgf}
+    \caption{Variability of the sources}
+    \label{fig:102_variability}
+    \end{center}
+\end{figure}
 
-\subsubsection{Proposed categorization / quality measurement}
+\subsubsection{Risk rate}
 
-\subsubsection{The results}
+Risk rate is a ratio of entities within given source that ever got into process of debt vindication.
+As described in section \nameref{section:intro-debt}, for sake of this analysis the two types of the risk are distinguished: mild and significant risk.
+Figure \ref{fig:102_risk_rate} shows the ratios as percentages for mild (left chart) and significant debt cases in function of average delay per source .
+
+\par
+It is tempting to draw easy conclusions from the results.
+For example, one could expect that the lower the delay is, the lower risk.
+Therefore, on the charts it could be expected to see a growing monotonic relationship (which is actually untrue).
+It must be stressed that the goal of this exercise is not categorize sources on those \textit{with clients that do not pay} and \textit{with trustworthy clients}.
+The true aim is to build awareness that the rate of persons that ever had any issues involving unpaid liability for some sources is significantly different than others.
+As the results of prediction power analysis will show, this is yet another factor that influences the outcome.
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/103_src_rel_risk_rate.pgf}
+    \caption{Rate of persons having at any time issues with unpaid liability. On left: mild risk, on right: significant}
+    \label{fig:102_risk_rate}
+    \end{center}
+\end{figure}
+
+\subsubsection{Conclusions}
+
+All comparisons of various metrics that characterize the sources supports once again the idea that there is justified
+need to treat the sources separately and to try to look for patterns considering the unique features of the sources.
+Considering all recorded payment events and ignoring the source characteristic may result in low performance of
+predictors or even misleading outcomes.
+
+\subsection{The \textit{stories} concept}
+\label{section:exploratory-stories}
+
+Each prediction analysis should at the end provide a plausible explanation of the found patterns.
+Would considering individual payment records tell anything about prospects of future financial issues?
+Would paying a single bill with a delay cause significant risk of incoming incidents of unpaid liabilities?
+\par
+The analysis of payment behavior records should rather focus on timely ordered events.
+It is expected that such time-lines provide more robust information and will be less prone to single incidents.
+Therefore the following definition will be used for further analysis:
+
+\vspace{0.5cm}
+\noindent\fbox{%
+\parbox{\textwidth}{
+    A \textbf{story} is timely ordered set of payment events of one person that may end in a negative payment experience.
+    Full time-line of payments for a given legal entity is split by each occurrence of a debt.
+}}
+\vspace{0.5cm}
+
+The examples of stories are pictured on figure \ref{fig:104_story_example_positive} and \ref{fig:105_story_example_negative}.
+Along the x-axis, which represents the time-line (scale shows number of days since the beginning of the story), payment events are shown.
+The points with negative delay represent bills paid before due-date, those above the zero are delayed bills.
+\par
+The two stories represent two different situations: figure \ref{fig:104_story_example_positive} shows a positive trend and is not ended with a debt whereas
+figure \ref{fig:105_story_example_negative} tells opposite story: the trend is negative and ended with a debt event.
+The examples are not synthetic, they were chosen from set of true payment stories.
+\par
+The idea of trends will be explored in details in section \nameref{section:prediction-analysis}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/104_story_example_positive.pgf}
+    \caption{A positive trend of a payment story}
+    \label{fig:104_story_example_positive}
+    \end{center}
+\end{figure}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/105_story_example_negative.pgf}
+    \caption{A payment story with negative trend, finished with a debt event)}
+    \label{fig:105_story_example_negative}
+    \end{center}
+\end{figure}
+
+\subsubsection{Quality of \textit{stories} per source}
+
+\textbf{TBD: if time permits, prepare charts with sources compared by quality factors for storiess.}
 
 \pagebreak
 
 \section{Prediction analysis}
+\label{section:prediction-analysis}
+
+This section will focus on the main part of the project: the check if the payment stories have any potential
+in prediction of financial problems.
+As per outcome of exploratory analysis, analysing prediction power is performed per each source separately,
+but the results are compared - in order to select sources with highest potential, possible to reveal patterns of sources characteristic that would allow automatic source evaluation to decide if it should be used to produce any prediction or not.
+
+\subsection{Data preparation}
+
+\subsubsection{Scaling}
+In order to ease comparison of the results between sources of different characteristic and
+create combined feature (\textit{severity} will be explained in section \nameref{section:hypotheses}), the features were scaled.
+Two different approaches were applied to delay and severity.\par
+As delay comes with no outliers, standard z-sore method of scaling a feature was used.
+\[d_i^{scaled}=\frac{d_i-\mu}{\sigma}\]
+Where \(d_i^{scaled}\) is the scaled value of delay of i-th payment (\(d_i\)), $\mu$ is average delay per source and $\sigma$ its standard deviation.
+\par
+The quality of amount is different: outliers are possible, especially large.
+For that reason, instead of z-score, a robust IQR scaling was applied.
+\[a_i^{scaled}=\frac{a_i-M_a}{Q_3-Q_1}\]
+Where \(a_i^{scaled}\) is the scaled amount of i-th payment (\(a_i\)), \(M_a\) is the median of amount per source and \(Q_1\), \(Q_3\) the first and third quartile, respectively.
+
+\subsubsection{Missing values}
+From the attributes under analysis, only amount may be missing.
+In order to deal with that, if number of missing amount values is less than 10\%, the missing values are updated with median.
+Otherwise, all existing values are removed - therefore for given source the amount will not be taken into consideration at all.
+
+\subsection{Hypotheses}
+\label{section:hypotheses}
+
+In order to find out plausible hypotheses one must first answer on the most important question: which features of the
+data story may play any role in describing payment behaviour.
+\begin{itemize}
+    \item \textbf{Delay}. Without any doubt this is definately the most important factor that should be be taken into consideration.
+    \item \textbf{Amount}. In contrary to delay, this feature may not be considered separately. There is no use in looking up for patterns of changed amount. The payer has no influence on the amount of the bill, whereas it may pay it upfront or later on. On the other hand, the amount - if present - must not be ignored.
+    \item \textbf{Timeline}. In context of a story not only set of payments shall be analysed but also the way they change over time
+\end{itemize}
+In order to deal with unclear role of amount in a payment story, another feature will be introduced: payment \textbf{severity},
+which can be defined as particular delay strengthen by the amount.
+The idea is to promote from cases of similar delay the payments with higher amount against those with lower value.
+The feature will replace the amount in formulating the hypotheses.
+\par
+The severity is calculated accordingly to below equation:
+\[s_i=d_i^{scaled}*(1+a_i^{scaled}+|\min{a_i^{scaled}}|)\]
+\par
+The figure \ref{fig:301_severity_explained} graphically explains the idea behind severity.
+For small amounts the delay is enlarged in its absolute value (making it larger for positive values and smaller for negative values) by factor proportional to amount.
+On the figure the mechanism is shown as red arrow, pointing to the severity value.
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/301_severity_explained.pgf}
+    \caption{Explanation of severity. The lenght of red arrows is proportional to amount of given payment}
+    \label{fig:301_severity_explained}
+    \end{center}
+\end{figure}
+
+All hypotheses assume that considering the value of the listed below features it is possible to predict later negative payment experience.
+To be more strict, term \textit{later} stands for the period starting from the last payment in the story and as long afterwards
+as the payment duration is (but not less than 30 days, not more than 2 years).
+
+\subsubsection{Hypothesis 1: mean of delay}
+\label{section:H1}
+
+Hypothesis $H_1$ assumes that the risk of getting into financial problems is related to mean of delay $D_\mu$.
+The stories with higher delay mean will tend to show higher risk.
+The example of such a story is shown on figure \ref{fig:302_h1_delay_mean_explained}.
+Red arrow shows the value that will be used as threshold for the binary classifier.
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/302_h1_delay_mean_explained.pgf}
+    \caption{An example of story with high $D_\mu$ that ends in a debt case}
+    \label{fig:302_h1_delay_mean_explained}
+    \end{center}
+\end{figure}
+
+\subsubsection{Hypothesis 2: mean of severity}
+
+Very similar to \nameref{section:H1}.
+The only difference is that it takes into consideration average severity $S_{\mu}$, not delay.
+
+\subsubsection{Hypothesis 3: tendency of delay}
+\label{section:H3}
+
+This hypothesis states that the risk of getting into financial issues is related to the observed tendency of delay $D_{a_1}$.
+If the delay is growing, the risk is also higher.
+A metric that will be used to check for tendency is coefficient $a_1$ of the regression line.
+Positive value means the line is climbing up, so the trend is positive (growing).
+Figure \ref{fig:303_h3_tendency_coefficient_explained} presents the idea on an example.
+\par During analysis it must not be forgotten to be aware that the interpretation of value of tendency is opposite to the one of delay.
+Whereas greater value of delay is - under the assumption hypothesis is correct - greater risk,
+for the coefficient of linear regression this is opposite: the greater value, the risk is lower.
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/303_h3_tendency_coefficient_explained.pgf}
+    \caption{An example of story with positive $a_1$ coefficient of regression line of delay that ends in a debt case}
+    \label{fig:303_h3_tendency_coefficient_explained}
+    \end{center}
+\end{figure}
+
+\subsubsection{Hypothesis 4: tendency of severity}
+
+The hypothesis bases on the same methodology as \nameref{section:H3}, but uses severity to calculate regression line coefficient $S_{a_0}$.
+
+\subsubsection{Hypothesis 5: value of delay predicted by linear regression}
+\label{section:H5}
+
+This hypothesis will focus on value of payment delay as predicted by linear regression at the end of the payment story: $\hat{D}$.
+The interpretation of this value will be processed exactly as value of mean delay in \nameref{section:H1},
+so the intention is to bind the higher value with the increased risk of default.
+Figure \ref{fig:304_h5_tendency_value_explained} presents the idea using example of a story where the predicted payment delay value is quite high - and the story ends with a debt.
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/304_h5_tendency_value_explained.pgf}
+    \caption{The \textit{predicted payment delay value} $\hat{D}$ concept explained on example of a story}
+    \label{fig:304_h5_tendency_value_explained}
+    \end{center}
+\end{figure}
+
+
+\subsubsection{Hypothesis 6: value of severity predicted by linear regression}
+
+The hypothesis copies the concept presented by \nameref{section:H5}, but the value considered is predicted value of severity $\hat{S}$.
+
+\subsection{Evaluating performance}
+
+\subsubsection{Methodology}
+
+In each hypothesis the feature value will be treated like binary predictor,
+which categorizes the story either as \textit{predicting problems} or \textit{not predicting problems}.
+Predictors defined in hypotheses H1, H2, H5 and H6 have continuous nature, i.e.\ may take any value from certain range.
+In order to obtain binary response the feature must be confronted certain threshold.
+\par Hypotheses H3 and H4, where the coefficient of linear regression is the predictor, require a short discussion on the evaluation method.
+Treating the exact value of the coefficient does not seem to be reasonable.
+Consider example where exactly the same payment behavior (understood here as series of invoiced amount and the payment delay) is spread over shorter and longer period.
+Obviously for the second the coefficient of trend will be lower.
+Does this mean the risk is different from the same behavior, but observed within shorter period?
+From mathematical point of view it could make sense, but part of the job of data scientist is to judge plausibility of the proposed scenarios.
+Accordingly to author of this thesis, there is no point to consider the exact value of the coefficient, but only the trend direction - i.e.\ the sign of the coefficient.
+\par Therefore, whereas the other predictors are treated as numbers, which may take any value and must be confronted a threshold to obtain binary response,
+the H4 and H5 come with the ready-to-take binary response.
+\par To evaluate the performance of a binary classifier, a confusion matrix must be calculated and
+out of it, a set of metrics produced to provide meaningful information on the true prediction power.
+Table \ref {tab:305_confusion_matrix} shows the structure of the confusion matrix in context of predicting one committing a default or not.
+
+\begin{table}[!htbp]
+    \centering
+    \caption{Confusion matrix}
+    \label{tab:305_confusion_matrix}
+    \begin{tabular}{c c c}
+    \\ \hline\hline
+    Ground truth: & \makecell{Predicted:\\positive} & \makecell{Predicted:\\negative} \\
+    \hline \\
+    positive & \makecell{\textbf{True Positive \textit{TP}} \\ Fraudster caught} & \makecell{\textbf{False Negative \textit{FN}} \\ Fraudster not caught!}\\
+    negative & \makecell{\textbf{False Positive \textit{FP}} \\ Innocent was accussed!} & \makecell{\textbf{True Negative \textit{TN}} \\ Nothing bad happened}\\
+    \hline\hline \\
+    \end{tabular}
+\end{table}
+
+
+\par Note that for a continuous variables, which may be confronted any given threshold, the confusion matrix and the metrics are different depending on the threshold.
+For these variables, an optimal threshold must be chosen.
+
+\subsubsection{Hypothesis 1}
+\subsubsection{Hypothesis 2}
+...
+
 
 The main part of the project. The following hypothesis will be verified (provisional list):
 \begin{itemize}
@@ -338,11 +598,17 @@ The main part of the project. The following hypothesis will be verified (provisi
     \item The payment delay tendency over time versus probability of default
 \end{itemize}
 
+
 \pagebreak
 
 \section{Conclusions}
 
 Are there statistically proven relations between payment delay history and the later new debts arrival?
 Is this connection reliable? Can it be told as a plausible story? Is it dependent on the quality class of the source? If more than one relation is identified, explain which is better, describe the difference (in numbers as well as in words)
+
+
+\section{Further steps}
+
+
 
 \end{document}
