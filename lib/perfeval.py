@@ -119,7 +119,10 @@ class PaymentStoriesPerformanceEvaluator:
         :param actual_col:
         :return:
         """
-        _pn = self.stories().num_rows
+        _pn = self._true_positives(predictor_col, threshold, actual_col) + \
+              self._true_negatives(predictor_col, threshold, actual_col) +  \
+              self._false_positives(predictor_col, threshold, actual_col) + \
+              self._false_negatives(predictor_col, threshold, actual_col)
         return None if _pn == 0 else \
             (self._true_positives(predictor_col, threshold, actual_col) +
              self._true_negatives(predictor_col, threshold, actual_col)) / _pn

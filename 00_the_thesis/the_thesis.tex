@@ -19,6 +19,10 @@
 \usepackage{booktabs}
 \usepackage[colorlinks=false]{hyperref}
 \usepackage{makecell}
+\usepackage[section]{placeins}
+\usepackage[backend=biber,style=alphabetic,sorting=ynt]{biblatex}
+
+\addbibresource{bibliography.bib}
 
 \begin{document}
 
@@ -78,12 +82,13 @@
 
 The project will focus on information about bill payment experiences - information coming from various
 sources, from companies that report the bill issue and payment day. The bill may be paid with certain
-delay or ahead of time. In the latter case the term “delay” makes no lexical sense, but in order to keep consistent naming, the difference in days between issue and payment will be hereinafter referred to as delay, which may take negative value to picture the bill being paid in advance.\par
-The first step will be to assess the quality of the sources and to choose those, where the information is reliable and have potential for further analysis. It will include providing distribution of the data
-respecting sociodemographic attributes to determine the typical profile of an average customer. The
-goal of the second part is to find statistically proved connections between the pay-delay details and the
+delay or ahead of time. In the latter case the term “delay” makes no lexical sense, but in order to keep consistent naming,
+the difference in days between issue and payment will be hereinafter referred to as delay,
+which may take negative value to picture the bill being paid in advance.\par
+The first step will be to assess the quality of the sources and to choose those, where the information is reliable and have potential for further analysis.
+The goal of the second part is to find proved connections between the pay-delay details and the
 financial issues that had happened afterwards. The details of the payment will cover attributes like the
-delay in days, the amount and the industry of bill issuer. It is important to explore also the tendencies
+delay in days, the amount and the time-line of the payments. It is important to explore also the tendencies
 that occur for these numbers over time. The analysis must also take into consideration the gradual
 nature of the “financial problems”, which take one of few severity levels, from collection notice to
 bankruptcy.\par
@@ -201,7 +206,8 @@ What measurements shall be used to calculate the quality of the source? The foll
 \section{Exploratory analysis}
 
 The goal of the exploratory analysis is to get to know data better.
-It should consist of checking metrics that gives an idea on quantity (how many records are there? what is the count of groups of records?) as well as quality (are the records meet criteria that will not cause potential errors in further analysis?)
+It should consist of checking metrics that gives an idea on quantity (how many records are there? what is the count of groups of records?)
+as well as quality (are the records meet criteria that will not cause potential errors in further analysis?)
 
 \subsection{The data overview}
 
@@ -438,13 +444,13 @@ As delay comes with no outliers, standard z-sore method of scaling a feature was
 Where \(d_i^{scaled}\) is the scaled value of delay of i-th payment (\(d_i\)), $\mu$ is average delay per source and $\sigma$ its standard deviation.
 \par
 The quality of amount is different: outliers are possible, especially large.
-For that reason, instead of z-score, a robust IQR scaling was applied.
+For that reason, instead of z-score, a robust IQR scaling was applied (\cite{scikitlearn}).
 \[a_i^{scaled}=\frac{a_i-M_a}{Q_3-Q_1}\]
 Where \(a_i^{scaled}\) is the scaled amount of i-th payment (\(a_i\)), \(M_a\) is the median of amount per source and \(Q_1\), \(Q_3\) the first and third quartile, respectively.
 
 \subsubsection{Missing values}
 From the attributes under analysis, only amount may be missing.
-In order to deal with that, if number of missing amount values is less than 10\%, the missing values are updated with median.
+In order to deal with that, if number of missing amount values is less than 10\%, the missing values are updated with median (\cite{szeliga}).
 Otherwise, all existing values are removed - therefore for given source the amount will not be taken into consideration at all.
 
 \subsection{Hypotheses}
@@ -507,7 +513,7 @@ The only difference is that it takes into consideration average severity $S_{\mu
 
 This hypothesis states that the risk of getting into financial issues is related to the observed tendency of delay $D_{a_1}$.
 If the delay is growing, the risk is also higher.
-A metric that will be used to check for tendency is coefficient $a_1$ of the regression line.
+A metric that will be used to check for tendency is coefficient $a_1$ of the regression line (\cite{the-art}, \cite{repetytorium}).
 Positive value means the line is climbing up, so the trend is positive (growing).
 Figure \ref{fig:303_h3_tendency_coefficient_explained} presents the idea on an example.
 \par During analysis it must not be forgotten to be aware that the interpretation of value of tendency is opposite to the one of delay.
@@ -553,9 +559,9 @@ The hypothesis copies the concept presented by \nameref{section:H5}, but the val
 
 In each hypothesis the feature value will be treated like binary predictor,
 which categorizes the story either as \textit{predicting problems} or \textit{not predicting problems}.
-Predictors defined in hypotheses H1, H2, H5 and H6 have continuous nature, i.e.\ may take any value from certain range.
+Predictors defined in hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ have continuous nature, i.e.\ may take any value from certain range.
 In order to obtain binary response the feature must be confronted certain threshold.
-\par Hypotheses H3 and H4, where the coefficient of linear regression is the predictor, require a short discussion on the evaluation method.
+\par Hypotheses $H_3$ and $H_4$, where the coefficient of linear regression is the predictor, require a short discussion on the evaluation method.
 Treating the exact value of the coefficient does not seem to be reasonable.
 Consider example where exactly the same payment behavior (understood here as series of invoiced amount and the payment delay) is spread over shorter and longer period.
 Obviously for the second the coefficient of trend will be lower.
@@ -563,10 +569,10 @@ Does this mean the risk is different from the same behavior, but observed within
 From mathematical point of view it could make sense, but part of the job of data scientist is to judge plausibility of the proposed scenarios.
 Accordingly to author of this thesis, there is no point to consider the exact value of the coefficient, but only the trend direction - i.e.\ the sign of the coefficient.
 \par Therefore, whereas the other predictors are treated as numbers, which may take any value and must be confronted a threshold to obtain binary response,
-the H4 and H5 come with the ready-to-take binary response.
+the $H_4$ and $H_5$ come with the ready-to-take binary response.
 \par To evaluate the performance of a binary classifier, a confusion matrix must be calculated and
 out of it, a set of metrics produced to provide meaningful information on the true prediction power.
-Table \ref {tab:305_confusion_matrix} shows the structure of the confusion matrix in context of predicting one committing a default or not.
+Table \ref {tab:305_confusion_matrix} shows the structure of the confusion matrix in context of predicting one committing a default or not (\cite{wiki-cm}).
 
 \begin{table}[!htbp]
     \centering
@@ -582,33 +588,239 @@ Table \ref {tab:305_confusion_matrix} shows the structure of the confusion matri
     \end{tabular}
 \end{table}
 
+As there is abundance of metrics that are built from confusion matrix, a short discussion is need to decide,
+which of them shall be used to evaluate and compare the performance of the predictors.
+\vspace{0.5cm}
+\par To measure a hit rate - how many true problems were correctly identified - \textbf{recall} (\textit{True Positive Rate}, $TPR$) is used:
+\[TPR=\frac{TP}{TP+FN}\]
+By maximizing $TPR$ an emphasis is put on finding all true problems, the metric shows how complete the predictor is in finding true cases.
+\vspace{0.5cm}
+\par \textbf{Precision} (\textit{Positive Predictive Value}, $PPV$) is a metric that checks how well the predicted truth reflects the ground truth.
+\[PPV=\frac{TP}{TP+FP}\]
+The $PPV$ may be interpreted as probability that the predicted truth is actual true by measuring how correct the predictor is.
+Maximizing precision should take place in cases when the most important to be correct in predicting truth.
+\vspace{0.5cm}
+\par \textbf{Accuracy} is a ratio of correctly identified (no matter if true or false, it must just be correct) among all cases.
+\[ACC=\frac{TP+TN}{TP+TN+FP+FN}\]
+\par Accuracy has a major downfall: it is easily distracted for imbalanced problems, i.e.\ where the majority of cases are true negative.
+As this is exactly a case in this analysis (most of the payment stories do not end in a debt case, the true-negative cases are dominating),
+\textbf{the accuracy will not be used} to assess the predictors.
+\vspace{0.5cm}
 
+\par \textbf{$F_1$ score} is the harmonic mean (of first degree) of the \textbf{recall} and \textbf{precision}.
+\[F_1=\frac{2}{TPR^{-1}+PPV^{-1}}=\frac{2TP}{2TP+FP+FN}\]
+\par The $F_1$ score is a convenient mean of evaluating and comparing predictors because it considers equally precision and recall (\cite{czakon-f1}).
+The disadvantage is that is does not have any intuitive understanding.
+It is difficult to explain what given value of $F_1$ actually mean in terms of the original problem.
 \par Note that for a continuous variables, which may be confronted any given threshold, the confusion matrix and the metrics are different depending on the threshold.
-For these variables, an optimal threshold must be chosen.
-
-\subsubsection{Hypothesis 1}
-\subsubsection{Hypothesis 2}
-...
-
-
-The main part of the project. The following hypothesis will be verified (provisional list):
+For these variables, an optimal threshold must be chosen - it will be referred to as $F_1^{max}$.
+\vspace{0.5cm}
+\par Another way to describe the performance of the binary predictor is \textbf{Receiver Operating Characteristic} curve (\cite{wiki-roc}),
+a chart that presents relations between True Positive Rate (recall) \(TPR=\frac{TP}{TP+FN}\)
+and False Positive Rate \(FPR=\frac{FP}{TN+FP}\) calculated for range of thresholds applied to calculate the output of the predictor.
+The random predictor will have a curve on diagonal of the chart.
+The predictor that actually have some prediction power will be above this line.
+If the ROC curve is below the diagonal, the predictor is useless.
+In order to assess this relation as one, easy to understand number, the area under the curve shall be measured ($ROC AUC$)
+\vspace{0.5cm}
+\par To sum up, the hypotheses will be compared using the following metrics:
 \begin{itemize}
-    \item Average delay versus probability of default
-    \item Growing or decreasing \textbf{overdue} amount of average bill over time versus probability of default
-    \item The payment delay tendency over time versus probability of default
+    \item $F_1^{max}$ or $F_1$ to compare the performance of predictors coming from hypotheses $H_1$ - $H_6$,
+    \item best $ROC AUC$ to compare the effectiveness between sources.
 \end{itemize}
 
+\subsubsection{Sources comparison}
+
+\par The table\ \ref{tab:311_ROCAUC_biggest_sources} show the comparison of $ROC AUC$ for the biggest sources.
+Results for both mild and significant risk are presented.
+\input{tab/311_ROCAUC_biggest_sources}
+\par The results clearly show the following.
+\begin{itemize}
+    \item The idea of treating sources separately in the analysis was the right choice. Observations made in exploratory analysis commentary, summarized in table \ref{tab:101_big_sources_evaluation} were correct
+    \item Figures for mild and severe risk are not far away, which is a good sign.
+    \item Although it was decided to use F-score for comparing the predictors within a source, it's difficult not to notice that the best potential of prediction, at least considering ROC AUC, lays in average delay in favor of other. This will be the goal of next section.
+\end{itemize}
+
+\subsubsection{Performance of the predictors}
+
+\par In order to present comparison of the predictors coming from the six defined hypotheses,
+the sources providing the best results were summarized in table\ \ref{tab:312_F1_best_sources_mild_risk}.
+The list of sources is composed of union of best sources sorted by each of the predictors.
+Therefore, on the list there are at least top 15 best sources per each predictor.
+The list is sorted descending by sum of all $F_1$ scores.
+
+\input{tab/312_F1_best_sources_mild_risk}
+
+\par From the results the following conclusions may be drawn.
+\begin{itemize}
+    \item The hypotheses $H_3$ and $H_4$ are vastly behind the others. Even for the best source (\textit{Blebout}) the value of $F_1=0.26$ is far behind the other numbers, for example $F_1^{max}$ for $D_{\mu}$ is almost twice as big: 0.49.
+    \item There is no much difference between performances of other hypotheses and there is no visible rule that would prefer one predictor over others. Conclusion drawn from $ROC AUC$, that the delay mean is the best predictor, seem now to be made rashly.
+    \item It must be stressed that in some cases - where the source does not deliver amount - it is absolutely expected that values for delay and severity are equal. In order not to complicate flow of processing data, all attributes are calculated, even though the severity is effectively equal delay.
+    \item In order to better understand the results of performance analysis of the predictors, chosen sources shall be presented in more details.
+\end{itemize}
+
+\subsubsection{Case study: \textit{Blebout}}
+
+Even though source \textit{Blebout} provides not too many payment stories, it is worth to present the results in details.
+Table\ \ref{tab:401_metrics_summary_Blebout} summarizes the most important metrics.
+\begin{itemize}
+    \item The \textbf{AUC} is visibly higher in favor of hypotheses that consider solely means ($D_{\mu}$, $S_{\mu}$). It is very well pictured on figure\ \ref{fig:402_roc_curves_Blebout}
+    \item $F_1$ score for different level of thresholds is presented on figure\ \ref{fig:403_f1_curves_Blebout}. It shows maximum effectiveness when threshold is put slightly above the avarage delay.
+    \item The \textbf{Precision} is a little better for hypotheses measuring severity, but the difference is very low. Value of 0.43 shall be interpreted as: \textit{in 43\% of cases where the predictor signalized a problem, it was actually there, the prediction was correct}
+    \item What differs hypotheses involving time tendency and those that focus on \textit{static} values is \textbf{Recall}, noticeably larger for later case. It means that hypotheses $H_1$ and $H_2$ correctly identified more true problems (value higher than 0.5 means that over 50\% of stories that ended up in a debt case were predicted by confronting this variable with optimized threshold).
+\end{itemize}
+
+\input{tab/401_metrics_summary_Blebout}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/402_roc_curves_Blebout.pgf}
+    \caption{ROC curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Blebout}}
+    \label{fig:402_roc_curves_Blebout}
+    \end{center}
+\end{figure}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/403_f1_curves_Blebout.pgf}
+    \caption{$F_1$-score curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Blebout}}
+    \label{fig:403_f1_curves_Blebout}
+    \end{center}
+\end{figure}
+
+\FloatBarrier
+
+\subsubsection{Case study: \textit{Estry}}
+
+Source \textit{Estry} comes with acceptable performance and with great amount of payment stories.
+Table\ \ref{tab:411_metrics_summary_Estry} presents the metrics.
+\begin{itemize}
+    \item \textbf{ROC AUC} shows greater potential in hypotheses $H_1$ and $H_2$ (focusing on delay and severity means), which well pictured on ROC curves showed on figure\ \ref{fig:412_roc_curves_Estry}
+    \item $F_1$ score is also better for these hypotheses, which is visible on figure\ \ref{fig:413_f1_curves_Estry}
+    \item Similarly as in case of \textit{Blebout}, the difference is on \textbf{Recall}. For example, considering only $D_{\mu}$ gives 34\% chance that the true problem was correctly identified, whereas adding amount and time-line lowers down these chances to 24\%
+\end{itemize}
+
+\input{tab/411_metrics_summary_Estry}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/412_roc_curves_Estry.pgf}
+    \caption{ROC curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Estry}}
+    \label{fig:412_roc_curves_Estry}
+    \end{center}
+\end{figure}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/413_f1_curves_Estry.pgf}
+    \caption{$F_1$-score curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Estry}}
+    \label{fig:413_f1_curves_Estry}
+    \end{center}
+\end{figure}
+
+\FloatBarrier
+
+\subsubsection{Case study: \textit{Sirient}}
+
+This source was chosen to illustrate, that there are cases where hypotheses, where involving amount and time-line may bring more accurrate prediction.
+Table\ \ref{tab:421_metrics_summary_Sirient} presents the metrics, which are all in favor of hypotheses $H_5$ and $H_6$.
+Figure\ \ref{fig:422_roc_curves_Sirient} shows the ROC curves of those hypotheses being almost identical as their \textit{static} counterparts, but $F_1$ score charts (fig.\ \ref{fig:423_f1_curves_Sirient}) show clearly their better results.
+
+\input{tab/421_metrics_summary_Sirient}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/422_roc_curves_Sirient.pgf}
+    \caption{ROC curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Sirient}}
+    \label{fig:422_roc_curves_Sirient}
+    \end{center}
+\end{figure}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/423_f1_curves_Sirient.pgf}
+    \caption{$F_1$-score curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Sirient}}
+    \label{fig:423_f1_curves_Sirient}
+    \end{center}
+\end{figure}
+
+\FloatBarrier
+
+\subsubsection{Case study: \textit{Addis}}
+
+To illustrate how bad the prediction can go if the data are of low quality,
+the metrics for the biggest source, \textit{Addis}, are presented in table\ \ref{tab:431_metrics_summary_Addis}.
+ROC AUC below 0.5 means that there is better chance to use random classifier
+(represented on figure\ \ref{fig:432_roc_curves_Addis} as diagonal) than to relay on predictions built from these data.
+The odd values of Recall (nearly 1) and Precision (almost 0) are effect of difficulties in obtaining
+threshold for the optimal $F_1^{max}$ (figure\ \ref{fig:433_f1_curves_Addis}), because it is so catastrophically bad.
+
+\input{tab/431_metrics_summary_Addis}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/432_roc_curves_Addis.pgf}
+    \caption{ROC curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Addis}}
+    \label{fig:432_roc_curves_Addis}
+    \end{center}
+\end{figure}
+
+\begin{figure}[htbp!]
+    \begin{center}
+        \input{fig/433_f1_curves_Addis.pgf}
+    \caption{$F_1$-score curves for hypotheses $H_1$, $H_2$, $H_5$ and $H_6$ for source \textit{Addis}}
+    \label{fig:433_f1_curves_Addis}
+    \end{center}
+\end{figure}
+
+\FloatBarrier
 
 \pagebreak
 
-\section{Conclusions}
+\section{Conclusions and further steps}
 
-Are there statistically proven relations between payment delay history and the later new debts arrival?
-Is this connection reliable? Can it be told as a plausible story? Is it dependent on the quality class of the source? If more than one relation is identified, explain which is better, describe the difference (in numbers as well as in words)
+\subsection{Conclusions}
 
+The analysis showed that even though the data quality and completeness is far from expectations,
+the evidence of prediction power of payment delay experiences is clear when data are treated with enough attention and scepticism.
+This is however achievable for certain sources only, which provide data of high quality.
+\par Six hypotheses were formulated and assessed.
+\begin{itemize}
+    \item Hypotheses $H_1$, which focuses on the duration in days between the bill date and payment date and ignores all other attributes in the majority of the cases is the most effective.
+    \item Including amount and calculating \textit{severity} of the payment, as proposed in hypothesis $H_2$ makes very little difference. The idea of strengthening the effect of delay by amount sounded tempting, but apparently hid the potential of this variable.
+    \item The idea of looking solely at the tendency of the payments, as proposed in hypotheses $H_3$ and $H_4$ did not work. The prediction power analysis proved that this is not the right path to follow.
+    \item Extending the idea of tendency in payment behavior with the actual (average) value of the delay, as proposes hypothesis $H_5$, provides better results, but only in few cases it is the best one.
+    \item Results of verifying hypothesis $H_6$ showed once more that scaling delay by severity does not improve the outcomes.
+\end{itemize}
+It must be also stressed that the distinction between predicting mild risk and substantial risk was at the very beginning of the analysis found negligible and therefore skipped in further steps.
 
-\section{Further steps}
+\par To conclude, it seems that the factor which has the biggest impact on prediction power of the payment experiences records is the delay itself.
+Including other factors, like tendency in time, benefits only for few selected examples.
 
+\subsection{Further steps}
 
+The analysis will not stop here.
+There are still several paths to be explored, from which three sound to be most interesting:
+\begin{itemize}
+    \item Having well described characteristic of each source and the performance of the predictors, it would be good idea to apply a clustering algorithm in order to categorize the sources by the usefulness of delivered data.
+    \item Once above-mentioned categorization is ready, it would be possible to explore potential of joined sets of sources, but only for those that are trustworthy.
+    \item The payment delay data does not come with many attributes, thus the decision not to apply machine learning algorithms on the sample. However, it would be interesting experiment to take the payment delay attributes (delay, amount, timeline measurements) as inputs for one of the machine learning algorithms and \textit{see what happens}.
+    \item An interesting idea would be also to compare what is the prediction power depending on the industry of bill issuer.
+\end{itemize}
+
+Besides, the whole exercise shall be repeated (tested) on new data set.
+The one described in this article is already few months old.
+
+\subsection{Final word}
+
+The question asked in the thesis is whether it is possible to predict risk of getting into financial troubles by observing the payment behavior of a person.
+The analysis showed that it is possible, but only for trustworthy sources.
+It was found that the major feature to observe is simply the average delay per \textit{payment story}.
+Although the result tells a plausible story: \textit{the person that pays the bills ahead of time is more trustworthy that the one neglecting to pay on time},
+it is quite disappointing that considering also other features of the payment experience provide no better results.
+
+\par The code used to generate all results is publicly available: \href{https://github.com/konradgrodek/ADDS_PayDelay}{github.com/konradgrodek/ADDS_PayDelay}.
+
+\printbibliography
 
 \end{document}

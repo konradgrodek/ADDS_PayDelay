@@ -113,7 +113,7 @@ def fig_histogram_all_delays(input_code: str, name: str) -> Path:
     ax.bar(
         [_b[1] for _b in _bins],
         [100 * _b[0] / pdelay_full.num_rows for _b in _bins],
-        width=0.7, color='silver', edgecolor='black'
+        width=0.7, color='gray', edgecolor='white'
     )
     ax.set_ylim(0, 10)
     ax.set_xlim(-32, 30)
@@ -287,9 +287,9 @@ if __name__ == "__main__":
     # _f = tab_all_paydelay_overview(_input_code, "000_overview_whole_dataset")
     # print(f'[green]Whole dataset overview table written to {_f.absolute()}')
 
-    # print('[blue]Printing histogram of delays')
-    # _f = fig_histogram_all_delays(_input_code, "001_delay_histogram")
-    # print(f'[green]Histogram of delay-days written to {_f.absolute()}')
+    print('[blue]Printing histogram of delays')
+    _f = fig_histogram_all_delays(_input_code, "001_delay_histogram")
+    print(f'[green]Histogram of delay-days written to {_f.absolute()}')
 
     # print('[blue]Calculating sources overview table')
     # _f = tab_sources_overview(_input_code, "100_overview_sources")
@@ -307,9 +307,9 @@ if __name__ == "__main__":
     # _f = fig_sources_rel_risk_rate(_input_code, "103_src_rel_risk_rate")
     # print(f'[green]Risk rates in function of average delay of sources stored in {_f.absolute()}')
 
-    print('[blue]Preparing examples of stories')
-    _f = fig_story_example(_input_code, "104_story_example_positive", 'Mentdis', 116805594)
-    print(f'[green]Positive example of story wrote to file {_f.absolute()}')
-    _f = fig_story_example(_input_code, "105_story_example_negative", 'Mentdis', 116806281)
-    print(f'[green]Negative example of story wrote to file {_f.absolute()}')
+    # print('[blue]Preparing examples of stories')
+    # _f = fig_story_example(_input_code, "104_story_example_positive", 'Mentdis', 116805594)
+    # print(f'[green]Positive example of story wrote to file {_f.absolute()}')
+    # _f = fig_story_example(_input_code, "105_story_example_negative", 'Mentdis', 116806281)
+    # print(f'[green]Negative example of story wrote to file {_f.absolute()}')
 
