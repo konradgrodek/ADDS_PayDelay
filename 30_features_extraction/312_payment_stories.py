@@ -1,5 +1,4 @@
 import sys
-import sys
 sys.path.append('../')
 
 from datetime import datetime

@@ -25,7 +25,9 @@ if __name__ == '__main__':
         PaymentStoriesColumns.TendencyCoefficient_ForDelay,
         PaymentStoriesColumns.TendencyCoefficient_ForSeverity,
         PaymentStoriesColumns.Tendency_ForDelay,
-        PaymentStoriesColumns.Tendency_ForSeverity
+        PaymentStoriesColumns.Tendency_ForSeverity,
+        PaymentStoriesColumns.TendencyMinusMean_ForDelay,
+        PaymentStoriesColumns.TendencyMinusMean_ForSeverity
     ]
 
     actual_cols = [

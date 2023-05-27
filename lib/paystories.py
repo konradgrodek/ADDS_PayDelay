@@ -619,10 +619,25 @@ class PaymentStoriesBuilder:
                 ),
                 _tendencies_values.column(PaymentStoriesColumns.TendencyConstant_ForSeverity.name)
             )
+        )
+        _tendencies_values = _tendencies_values.append_column(
+            PaymentStoriesColumns.TendencyMinusMean_ForDelay.name,
+            pc.subtract(
+                _tendencies_values.column(PaymentStoriesColumns.Tendency_ForDelay.name),
+                _tendencies_values.column(PaymentStoriesColumns.ScaledDelayMean.name)
+            )
+        ).append_column(
+            PaymentStoriesColumns.TendencyMinusMean_ForSeverity.name,
+            pc.subtract(
+                _tendencies_values.column(PaymentStoriesColumns.Tendency_ForSeverity.name),
+                _tendencies_values.column(PaymentStoriesColumns.SeverityMean.name)
+            )
         ).select([
             PaymentGroupsColumns.StoryId.name,
             PaymentStoriesColumns.Tendency_ForDelay.name,
-            PaymentStoriesColumns.Tendency_ForSeverity.name
+            PaymentStoriesColumns.Tendency_ForSeverity.name,
+            PaymentStoriesColumns.TendencyMinusMean_ForDelay.name,
+            PaymentStoriesColumns.TendencyMinusMean_ForSeverity.name
         ])
         self._stories = self.stories().join(_tendencies_values, PaymentGroupsColumns.StoryId.name)
 

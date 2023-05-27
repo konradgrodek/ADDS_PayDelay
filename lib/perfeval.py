@@ -43,16 +43,22 @@ class PaymentStoriesPerformanceEvaluator:
     def _predictor(self, predictor_col: str,
                    actual_col: str = None) -> Union[pa.ChunkedArray, tuple[pa.ChunkedArray, pa.ChunkedArray]]:
         if predictor_col in (PaymentStoriesColumns.TendencyCoefficient_ForSeverity.name,
-                             PaymentStoriesColumns.TendencyCoefficient_ForDelay.name):
+                             PaymentStoriesColumns.TendencyCoefficient_ForDelay.name,
+                             PaymentStoriesColumns.Tendency_ForSeverity,
+                             PaymentStoriesColumns.Tendency_ForDelay):
             _filtered = self.stories().filter(
                 pc.field(predictor_col).is_valid()
                 & (pc.field(PaymentStoriesColumns.PaymentsCount.name) > 2)
                 & ~pc.field(predictor_col).is_nan()
             )
-            _pred = pc.negate(_filtered.column(predictor_col))
+            _pred = _filtered.column(predictor_col)
             return (_pred, _filtered.column(actual_col)) if actual_col is not None else _pred
 
-        _filtered = self.stories().filter(pc.field(predictor_col).is_valid() & ~pc.field(predictor_col).is_nan() & (pc.field(PaymentStoriesColumns.PaymentsCount.name) > 1))
+        _filtered = self.stories().filter(
+            pc.field(predictor_col).is_valid()
+            & ~pc.field(predictor_col).is_nan()
+            & (pc.field(PaymentStoriesColumns.PaymentsCount.name) > 1)
+        )
         return (_filtered.column(predictor_col), _filtered.column(actual_col)) if actual_col is not None \
             else _filtered.column(predictor_col)
 
