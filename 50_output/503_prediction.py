@@ -509,25 +509,25 @@ if __name__ == "__main__":
 
     _input_code = sys.argv[1]
 
-    # print('[blue]Preparing explanation of severity')
-    # _f = fig_severity_shown(_input_code, "301_severity_explained", 'Mentdis', 116855050)
-    # print(f'[green]Explanation of severity stored in {_f.absolute()}')
+    print('[blue]Preparing explanation of severity')
+    _f = fig_severity_shown(_input_code, "301_severity_explained", 'Mentdis', 116855050)
+    print(f'[green]Explanation of severity stored in {_f.absolute()}')
 
-    # print('[blue]Preparing explanation of H1')
-    # _f = fig_h1_delay_mean(_input_code, "302_h1_delay_mean_explained", 'Mentdis', 116854026)
-    # print(f'[green]Explanation of hypothesis H1 (delay mean) stored in {_f.absolute()}')
+    print('[blue]Preparing explanation of H1')
+    _f = fig_h1_delay_mean(_input_code, "302_h1_delay_mean_explained", 'Mentdis', 116854026)
+    print(f'[green]Explanation of hypothesis H1 (delay mean) stored in {_f.absolute()}')
 
-    # print('[blue]Preparing explanation of H3')
-    # _f = fig_h3_delay_tendency(_input_code, "303_h3_tendency_coefficient_explained", 'Mentdis', 116861844)
-    # print(f'[green]Explanation of hypothesis H3 (tendency coefficient) stored in {_f.absolute()}')
+    print('[blue]Preparing explanation of H3')
+    _f = fig_h3_delay_tendency(_input_code, "303_h3_tendency_coefficient_explained", 'Mentdis', 116861844)
+    print(f'[green]Explanation of hypothesis H3 (tendency coefficient) stored in {_f.absolute()}')
 
-    # print('[blue]Preparing explanation of H5')
-    # _f = fig_h5_tendency_value_explained(_input_code, "304_h5_tendency_value_explained", 'Mentdis', 116545831)
-    # print(f'[green]Explanation of hypothesis H5 (tendency value) stored in {_f.absolute()}')
+    print('[blue]Preparing explanation of H5')
+    _f = fig_h5_tendency_value_explained(_input_code, "304_h5_tendency_value_explained", 'Mentdis', 116545831)
+    print(f'[green]Explanation of hypothesis H5 (tendency value) stored in {_f.absolute()}')
 
-    # print('[blue]Creating tabs with ROC AUC for biggest columns')
-    # _f = tab_sources_rocauc_overview(_input_code, "311_ROCAUC_biggest_sources")
-    # print(f'[green]ROC AUC of biggest sources stored in {_f.absolute()}')
+    print('[blue]Creating tabs with ROC AUC for biggest columns')
+    _f = tab_sources_rocauc_overview(_input_code, "311_ROCAUC_biggest_sources")
+    print(f'[green]ROC AUC of biggest sources stored in {_f.absolute()}')
 
     print('[blue]Creating tabs with F1 for the best sources')
     _f = tab_sources_f1_overview(_input_code, "312_F1_best_sources_mild_risk")
